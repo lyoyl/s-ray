@@ -1,0 +1,22 @@
+{
+  "name": "@lyoyl/lyoyl",
+  "version": "0.1.0",
+  "description": "A user interface library powered by web components tech",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "serve": "esbuild www/demo.ts --outdir=www/js --bundle --servedir=www",
+    "build": "npm run esbuild && npm run tsc",
+    "esbuild": "esbuild src/index.ts --bundle --minify --sourcemap --target=esnext --format=esm --outfile=dist/index.js",
+    "tsc": "tsc",
+    "format": "dprint fmt --config ./dprint.json"
+  },
+  "devDependencies": {
+    "dprint": "^0.47.2",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.4"
+  }
+}

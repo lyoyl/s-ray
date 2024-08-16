@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ESNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "incremental": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "emitDeclarationOnly": true
+  },
+  "include": [
+    "./src/**/*",
+    "./www/**/*"
+  ],
+  "exclude": [
+    "./node_modules"
+  ]
+}
