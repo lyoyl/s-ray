@@ -69,12 +69,7 @@ export class XBaseElement extends HTMLElement {
       const fixer = (newValue: string) => {
         attribute.ownerElement?.setAttribute(name, pattern.replaceAll(bindingRE, newValue));
       };
-      if (!this.#bindings.has(bindingName)) {
-        this.#bindings.set(bindingName, new Map());
-      }
-      if (!this.#bindings.get(bindingName)!.has(attribute)) {
-        this.#bindings.get(bindingName)!.set(attribute, fixer);
-      }
+      this.#setFixerForBinding(bindingName, attribute, fixer);
       m = bindingRE.exec(pattern);
     }
   }
@@ -95,19 +90,45 @@ export class XBaseElement extends HTMLElement {
   }
 
   #parseText(text: Text) {
+    const content = text.nodeValue || '';
+    let m = bindingRE.exec(content);
+    while (m) {
+      const bindingName = m[1];
+      const fixer = (newValue: string) => {
+        text.nodeValue = content.replaceAll(bindingRE, newValue);
+      };
+      this.#setFixerForBinding(bindingName, text, fixer);
+      m = bindingRE.exec(content);
+    }
+  }
+
+  #setFixerForBinding(bindingName: string, node: Attr | Text, fixer: Fixer) {
+    if (!this.#bindings.has(bindingName)) {
+      this.#bindings.set(bindingName, new Map());
+    }
+    if (!this.#bindings.get(bindingName)!.has(node)) {
+      this.#bindings.get(bindingName)!.set(node, fixer);
+    }
   }
 
   #render() {
     this.#bindings.forEach((_, bindingName) => {
-      this.render(bindingName, this[bindingName]);
+      this.render(
+        bindingName,
+        this[bindingName],
+        new Set(), /* initial rendering, we don't need to trigger computed functions to run */
+      );
     });
   }
 
-  render(bindingName: string, newValue: any) {
+  render(bindingName: string, newValue: any, computers: Set<string>) {
     const fixers = this.#bindings.get(bindingName);
     if (!fixers) {
       return;
     }
     fixers.forEach((fixer) => fixer(newValue));
+    computers.forEach(computerName => {
+      this.render(computerName, this[computerName], new Set());
+    });
   }
 }

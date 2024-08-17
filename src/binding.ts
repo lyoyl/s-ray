@@ -1,14 +1,32 @@
 import { XBaseElement } from './XBaseElement';
 
-export function binding(baseElement: XBaseElement, key: string) {
-  let value = baseElement[key];
-  Object.defineProperty(baseElement, key, {
+let computerNameStack: string[] = [];
+
+export function binding(target: XBaseElement, key: string) {
+  let value = target[key];
+  const computers = new Set<string>();
+  Object.defineProperty(target, key, {
     get() {
+      computerNameStack.forEach(computerName => computers.add(computerName));
       return value;
     },
     set(newValue) {
+      if (newValue === value) {
+        return;
+      }
       value = newValue;
-      baseElement.render.call(this, key, newValue);
+      target.render.call(this, key, newValue, computers);
     },
   });
+}
+
+export function computed(target: XBaseElement, key: string, descriptor: PropertyDescriptor) {
+  const originalGet = descriptor.get!;
+  // TODO: Check and make sure the originalGet is a function
+  descriptor.get = function() {
+    computerNameStack.push(key);
+    const value = originalGet.call(this);
+    computerNameStack.pop();
+    return value;
+  };
 }
