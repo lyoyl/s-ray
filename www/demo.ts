@@ -1,4 +1,4 @@
-import { XBaseElement, XCondition, html, binding } from '../src/index';
+import { XBaseElement, XCondition, binding, html } from '../src/index';
 
 customElements.define('x-condition', XCondition);
 
@@ -31,7 +31,7 @@ class MyApp extends XBaseElement {
 
   handleClick = () => {
     this.currentView = this.currentView === 'foo' ? 'bar' : 'foo';
-  }
+  };
 }
 
 customElements.define('my-app', MyApp);

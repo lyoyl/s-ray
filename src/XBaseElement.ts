@@ -1,4 +1,4 @@
-import { bindingRE } from "./html";
+import { bindingRE } from './html';
 
 type Fixer = (newValue: string) => void;
 
@@ -12,7 +12,6 @@ export class XBaseElement extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.shadowRoot!.appendChild(template.cloneNode(true));
     this.#parseTemplate(this.shadowRoot!);
-
   }
 
   #bindings: Bindings = new Map();
@@ -54,11 +53,11 @@ export class XBaseElement extends HTMLElement {
   #parseAttribute(attribute: Attr) {
     const name = attribute.name;
     const pattern = attribute.value;
-    let m = bindingRE.exec(pattern)
-    while(m) {
+    let m = bindingRE.exec(pattern);
+    while (m) {
       const bindingName = m[1];
       const fixer = (newValue: string) => {
-        console.log(attribute.ownerElement)
+        console.log(attribute.ownerElement);
         attribute.ownerElement?.setAttribute(name, pattern.replaceAll(bindingRE, newValue));
       };
       if (!this.#bindings.has(bindingName)) {
@@ -73,7 +72,6 @@ export class XBaseElement extends HTMLElement {
   }
 
   #parseText(text: Text) {
-
   }
 
   render(bindingName: string, newValue: any) {
