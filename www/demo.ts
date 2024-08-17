@@ -24,11 +24,6 @@ class MyApp extends XBaseElement {
     super(template);
   }
 
-  connectedCallback() {
-    const toggleButton = this.shadowRoot!.querySelector('button')!;
-    toggleButton.addEventListener('click', this.handleClick);
-  }
-
   handleClick = () => {
     this.currentView = this.currentView === 'foo' ? 'bar' : 'foo';
   };

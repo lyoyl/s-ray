@@ -11,7 +11,11 @@ export class XBaseElement extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this.shadowRoot!.appendChild(template.cloneNode(true));
+  }
+
+  connectedCallback() {
     this.#parseTemplate(this.shadowRoot!);
+    this.#render();
   }
 
   #bindings: Bindings = new Map();
@@ -52,12 +56,17 @@ export class XBaseElement extends HTMLElement {
 
   #parseAttribute(attribute: Attr) {
     const name = attribute.name;
+
+    if (name.startsWith('@')) {
+      this.#parseEvent(attribute);
+      return;
+    }
+
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     while (m) {
       const bindingName = m[1];
       const fixer = (newValue: string) => {
-        console.log(attribute.ownerElement);
         attribute.ownerElement?.setAttribute(name, pattern.replaceAll(bindingRE, newValue));
       };
       if (!this.#bindings.has(bindingName)) {
@@ -68,10 +77,30 @@ export class XBaseElement extends HTMLElement {
       }
       m = bindingRE.exec(pattern);
     }
-    console.log(this.#bindings);
+  }
+
+  #parseEvent(attribute: Attr) {
+    const name = attribute.name;
+    const pattern = attribute.value;
+    let m = bindingRE.exec(pattern);
+    if (!m) {
+      // TODO: throw error
+      return;
+    }
+    const eventName = name.slice(1);
+    const methodName = m[1];
+    const method = this[methodName];
+    attribute.ownerElement?.addEventListener(eventName, method);
+    // TODO: need cleanup mechanism
   }
 
   #parseText(text: Text) {
+  }
+
+  #render() {
+    this.#bindings.forEach((_, bindingName) => {
+      this.render(bindingName, this[bindingName]);
+    });
   }
 
   render(bindingName: string, newValue: any) {
