@@ -1,11 +1,11 @@
-import { XBaseElement, XCondition, binding, computed, html } from '../src/index';
+import { XBaseElement, XCondition, binding, computed, defineElement, html } from '../src/index';
 
 customElements.define('x-condition', XCondition);
 
 const template = html<MyApp>`
   <button @click="${'handleClick'}">Toggle</button>
 
-  <h4>${'currentViewText'}</h4>
+  <h4>${'currentViewText'}----------------</h4>
 
   <h4>${'currentViewTextPlus'}</h4>
 
@@ -15,6 +15,9 @@ const template = html<MyApp>`
   </x-condition>
 `;
 
+@defineElement({
+  template,
+})
 class MyApp extends XBaseElement {
   @binding
   currentView: 'foo' | 'bar' = 'foo';
@@ -36,9 +39,8 @@ class MyApp extends XBaseElement {
       : this.currentViewText + this.desc + 'bar';
   }
 
-  constructor() {
-    super(template);
-
+  connectedCallback() {
+    super.connectedCallback();
     setInterval(() => {
       this.desc = 'This is a new description.' + Math.random();
     }, 1000);
@@ -48,5 +50,3 @@ class MyApp extends XBaseElement {
     this.currentView = this.currentView === 'foo' ? 'bar' : 'foo';
   };
 }
-
-customElements.define('my-app', MyApp);

@@ -1,5 +1,9 @@
 import { bindingRE } from './html';
 
+interface ElementOptions {
+  template: DocumentFragment;
+}
+
 type Fixer = (newValue: string) => void;
 
 type Bindings = Map<string, Map<Attr | Text, Fixer>>;
@@ -7,10 +11,10 @@ type Bindings = Map<string, Map<Attr | Text, Fixer>>;
 export class XBaseElement extends HTMLElement {
   [key: string]: any;
 
-  constructor(template: DocumentFragment) {
+  constructor(options: ElementOptions) {
     super();
     this.attachShadow({ mode: 'open' });
-    this.shadowRoot!.appendChild(template.cloneNode(true));
+    this.shadowRoot!.appendChild(options.template.cloneNode(true));
   }
 
   connectedCallback() {
@@ -131,4 +135,16 @@ export class XBaseElement extends HTMLElement {
       this.render(computerName, this[computerName], new Set());
     });
   }
+}
+
+export function defineElement(options: ElementOptions) {
+  return <T extends { new(...args: any[]): XBaseElement }>(ctr: T) => {
+    const Element = class extends ctr {
+      constructor(...args: any[]) {
+        super(options);
+      }
+    };
+    customElements.define('my-app', Element);
+    return Element;
+  };
 }
