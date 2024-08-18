@@ -76,6 +76,7 @@ export class SBaseElement extends HTMLElement {
       this.#setFixerForBinding(bindingName, attribute, fixer);
       m = bindingRE.exec(pattern);
     }
+    bindingRE.lastIndex = 0;
   }
 
   #parseEvent(attribute: Attr) {
@@ -90,7 +91,10 @@ export class SBaseElement extends HTMLElement {
     const methodName = m[1];
     const method = this[methodName];
     attribute.ownerElement?.addEventListener(eventName, method);
+
     // TODO: need cleanup mechanism
+
+    bindingRE.lastIndex = 0;
   }
 
   #parseText(text: Text) {
@@ -104,6 +108,7 @@ export class SBaseElement extends HTMLElement {
       this.#setFixerForBinding(bindingName, text, fixer);
       m = bindingRE.exec(content);
     }
+    bindingRE.lastIndex = 0;
   }
 
   #setFixerForBinding(bindingName: string, node: Attr | Text, fixer: Fixer) {
@@ -127,10 +132,9 @@ export class SBaseElement extends HTMLElement {
 
   render(bindingName: string, newValue: any, computers: Set<string>) {
     const fixers = this.#bindings.get(bindingName);
-    if (!fixers) {
-      return;
+    if (fixers) {
+      fixers.forEach((fixer) => fixer(newValue));
     }
-    fixers.forEach((fixer) => fixer(newValue));
     computers.forEach(computerName => {
       this.render(computerName, this[computerName], new Set());
     });

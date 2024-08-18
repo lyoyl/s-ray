@@ -13,6 +13,9 @@ const template = html<MyApp>`
     <h1 slot="foo" ref="${'titleEl'}">Hello, World! ${'desc'} AAAAA</h1>
     <h1 slot="bar">Goodbye, World! BBBBB</h1>
   </s-condition>
+
+  <button @click="${'handleButtonClick'}">${'double'}</button>
+  <h3>Triple: ${'triple'}</h3>
 `;
 
 @defineElement({
@@ -26,6 +29,19 @@ class MyApp extends SBaseElement {
 
   @reactive
   desc = 'This is a description.';
+
+  @reactive
+  counter = 1;
+
+  @computed
+  get double() {
+    return this.counter * 2;
+  }
+
+  @computed
+  get triple() {
+    return this.counter * 3;
+  }
 
   @computed
   get currentViewText() {
@@ -48,5 +64,9 @@ class MyApp extends SBaseElement {
 
   handleClick = () => {
     this.currentView = this.currentView === 'foo' ? 'bar' : 'foo';
+  };
+
+  handleButtonClick = () => {
+    this.counter++;
   };
 }
