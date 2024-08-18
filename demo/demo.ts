@@ -1,6 +1,6 @@
-import { XBaseElement, XCondition, computed, defineElement, html, reactive } from '../src/index';
+import { SBaseElement, SCondition, computed, defineElement, html, reactive } from '../src/index';
 
-customElements.define('x-condition', XCondition);
+customElements.define('s-condition', SCondition);
 
 const template = html<MyApp>`
   <button @click="${'handleClick'}">Toggle</button>
@@ -9,16 +9,16 @@ const template = html<MyApp>`
 
   <h4>${'currentViewTextPlus'}</h4>
 
-  <x-condition current="${'currentView'}">
+  <s-condition current="${'currentView'}">
     <h1 slot="foo" ref="${'titleEl'}">Hello, World! ${'desc'} AAAAA</h1>
     <h1 slot="bar">Goodbye, World! BBBBB</h1>
-  </x-condition>
+  </s-condition>
 `;
 
 @defineElement({
   template,
 })
-class MyApp extends XBaseElement {
+class MyApp extends SBaseElement {
   @reactive
   currentView: 'foo' | 'bar' = 'foo';
 

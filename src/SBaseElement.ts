@@ -8,7 +8,7 @@ type Fixer = (newValue: string) => void;
 
 type Bindings = Map<string, Map<Attr | Text, Fixer>>;
 
-export class XBaseElement extends HTMLElement {
+export class SBaseElement extends HTMLElement {
   [key: string]: any;
 
   constructor(options: ElementOptions) {
@@ -138,7 +138,7 @@ export class XBaseElement extends HTMLElement {
 }
 
 export function defineElement(options: ElementOptions) {
-  return <T extends { new(...args: any[]): XBaseElement }>(ctr: T) => {
+  return <T extends { new(...args: any[]): SBaseElement }>(ctr: T) => {
     const Element = class extends ctr {
       constructor(...args: any[]) {
         super(options);

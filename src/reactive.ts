@@ -1,8 +1,8 @@
-import { XBaseElement } from './XBaseElement';
+import { SBaseElement } from './SBaseElement';
 
 let computerNameStack: string[] = [];
 
-export function reactive(target: XBaseElement, key: string) {
+export function reactive(target: SBaseElement, key: string) {
   let value = target[key];
   const computers = new Set<string>();
   Object.defineProperty(target, key, {
@@ -20,7 +20,7 @@ export function reactive(target: XBaseElement, key: string) {
   });
 }
 
-export function computed(target: XBaseElement, key: string, descriptor: PropertyDescriptor) {
+export function computed(target: SBaseElement, key: string, descriptor: PropertyDescriptor) {
   const originalGet = descriptor.get!;
   // TODO: Check and make sure the originalGet is a function
   descriptor.get = function() {

@@ -1,4 +1,4 @@
-export class XCondition extends HTMLElement {
+export class SCondition extends HTMLElement {
   static get observedAttributes() {
     return ['current'];
   }

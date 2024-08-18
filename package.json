@@ -8,9 +8,9 @@
     "dist"
   ],
   "scripts": {
-    "serve": "esbuild www/demo.ts --outdir=www/js --bundle --servedir=www",
     "build": "npm run esbuild && npm run tsc",
     "esbuild": "esbuild src/index.ts --bundle --minify --sourcemap --target=esnext --format=esm --outfile=dist/index.js",
+    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",
     "tsc": "tsc",
     "format": "dprint fmt --config ./dprint.json"
   },
