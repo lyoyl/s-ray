@@ -12,7 +12,11 @@
     "declarationDir": "dist",
     "emitDeclarationOnly": true,
     "experimentalDecorators": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "types": [
+      "mocha",
+      "node"
+    ]
   },
   "include": [
     "./src/**/*",

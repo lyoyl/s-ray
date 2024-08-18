@@ -1,4 +1,4 @@
-export { html } from './html';
-export { computed, reactive } from './reactive';
-export { SBaseElement, defineElement } from './SBaseElement';
-export { SCondition } from './SCondition';
+export { html } from './html.js';
+export { computed, reactive } from './reactive.js';
+export { SBaseElement, defineElement } from './SBaseElement.js';
+export { SCondition } from './SCondition.js';

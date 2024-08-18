@@ -1,4 +1,4 @@
-import { SBaseElement } from './SBaseElement';
+import { SBaseElement } from './SBaseElement.js';
 
 type PropertiesOf<T extends SBaseElement> = {
   [key in keyof T]: T[key];

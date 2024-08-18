@@ -1,4 +1,4 @@
-import { bindingRE } from './html';
+import { bindingRE } from './html.js';
 
 interface ElementOptions {
   template: DocumentFragment;

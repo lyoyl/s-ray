@@ -1,5 +1,6 @@
 {
   "name": "@lyoyl/s-ray",
+  "type": "module",
   "version": "0.1.0",
   "description": "A user interface library powered by web components tech",
   "main": "dist/index.js",
@@ -10,11 +11,20 @@
   "scripts": {
     "build": "npm run esbuild && npm run tsc",
     "esbuild": "esbuild src/index.ts --bundle --minify --sourcemap --target=esnext --format=esm --outfile=dist/index.js",
-    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",
     "tsc": "tsc",
+    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",
+    "test": "web-test-runner --config ./web-test-runner.config.js",
+    "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
     "format": "dprint fmt --config ./dprint.json"
   },
   "devDependencies": {
+    "@esm-bundle/chai": "4.3.4-fix.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^22.4.0",
+    "@types/sinon": "^17.0.3",
+    "@web/dev-server-esbuild": "^1.0.2",
+    "@web/test-runner": "^0.18.3",
+    "@web/test-runner-playwright": "^0.11.0",
     "dprint": "^0.47.2",
     "esbuild": "^0.23.0",
     "typescript": "^5.5.4"

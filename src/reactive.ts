@@ -1,4 +1,4 @@
-import { SBaseElement } from './SBaseElement';
+import { SBaseElement } from './SBaseElement.js';
 
 let computerNameStack: string[] = [];
 

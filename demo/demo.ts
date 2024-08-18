@@ -1,4 +1,4 @@
-import { SBaseElement, SCondition, computed, defineElement, html, reactive } from '../src/index';
+import { SBaseElement, SCondition, computed, defineElement, html, reactive } from '../src/index.js';
 
 customElements.define('s-condition', SCondition);
 
