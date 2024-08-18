@@ -1,6 +1,4 @@
-import { SBaseElement, SCondition, computed, defineElement, html, reactive } from '../src/index.js';
-
-customElements.define('s-condition', SCondition);
+import { SBaseElement, computed, defineElement, html, reactive } from '../src/index.js';
 
 const template = html<MyApp>`
   <button @click="${'handleClick'}">Toggle</button>

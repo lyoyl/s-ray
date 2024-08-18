@@ -1,4 +1,5 @@
 import { bindingRE } from './html.js';
+import { hyphenate } from './utils.js';
 
 interface ElementOptions {
   template: DocumentFragment;
@@ -168,7 +169,7 @@ export function defineElement(options: ElementOptions) {
         super(options);
       }
     };
-    customElements.define('my-app', Element);
+    customElements.define(hyphenate(ctr.name), Element);
     return Element;
   };
 }

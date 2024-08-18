@@ -31,3 +31,5 @@ export class SCondition extends HTMLElement {
     this.#slotElement!.setAttribute('name', this.current);
   }
 }
+
+customElements.define('s-condition', SCondition);
