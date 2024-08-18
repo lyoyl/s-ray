@@ -1,4 +1,4 @@
-import { XBaseElement, XCondition, binding, computed, defineElement, html } from '../src/index';
+import { XBaseElement, XCondition, computed, defineElement, html, reactive } from '../src/index';
 
 customElements.define('x-condition', XCondition);
 
@@ -19,12 +19,12 @@ const template = html<MyApp>`
   template,
 })
 class MyApp extends XBaseElement {
-  @binding
+  @reactive
   currentView: 'foo' | 'bar' = 'foo';
 
   titleEl!: HTMLHeadingElement;
 
-  @binding
+  @reactive
   desc = 'This is a description.';
 
   @computed
