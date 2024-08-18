@@ -1,5 +1,5 @@
 {
-  "name": "@lyoyl/lyoyl",
+  "name": "@lyoyl/s-ray",
   "version": "0.1.0",
   "description": "A user interface library powered by web components tech",
   "main": "dist/index.js",
