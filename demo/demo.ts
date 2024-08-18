@@ -57,6 +57,7 @@ class MyApp extends SBaseElement {
 
   connectedCallback() {
     super.connectedCallback();
+    console.log('ref element: ', this.titleEl);
     setInterval(() => {
       this.desc = 'This is a new description.' + Math.random();
     }, 1000);

@@ -64,6 +64,9 @@ export class SBaseElement extends HTMLElement {
     if (name.startsWith('@')) {
       this.#parseEvent(attribute);
       return;
+    } else if (name === 'ref') {
+      this.#parseRef(attribute);
+      return;
     }
 
     const pattern = attribute.value;
@@ -91,9 +94,26 @@ export class SBaseElement extends HTMLElement {
     const methodName = m[1];
     const method = this[methodName];
     attribute.ownerElement?.addEventListener(eventName, method);
+    // remove the attribute
+    attribute.ownerElement?.removeAttribute(name);
 
     // TODO: need cleanup mechanism
 
+    bindingRE.lastIndex = 0;
+  }
+
+  #parseRef(attribute: Attr) {
+    const pattern = attribute.value;
+    let m = bindingRE.exec(pattern);
+    if (!m) {
+      // TODO: throw error
+      return;
+    }
+    this[m[1]] = attribute.ownerElement;
+    // TODO: need cleanup mechanism, and dev mode warning
+
+    // remove the attribute
+    attribute.ownerElement?.removeAttribute(attribute.name);
     bindingRE.lastIndex = 0;
   }
 
