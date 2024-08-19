@@ -8,7 +8,7 @@ const template = html<MyApp>`
   <h4>${'currentViewTextPlus'}</h4>
 
   <s-condition current="${'currentView'}">
-    <h1 slot="foo" ref="${'titleEl'}">Hello, World! ${'desc'} AAAAA</h1>
+    <h1 slot="foo" ref="${'titleEl'}">Hello, World! ${'desc'} AAAAA ${'desc'}</h1>
     <h1 slot="bar">Goodbye, World! BBBBB</h1>
   </s-condition>
 

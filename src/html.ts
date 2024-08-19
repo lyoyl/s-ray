@@ -7,7 +7,7 @@ type NoStringIndex<T> = { [K in keyof T as string extends K ? never : K]: T[K] }
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
-export const bindingRE = /\$\$--(.+)--\$\$/g;
+export const bindingRE = /\$\$--(.+?)--\$\$/g;
 
 export function html<T extends SBaseElement>(
   strings: TemplateStringsArray,

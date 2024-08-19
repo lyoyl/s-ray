@@ -1,5 +1,3 @@
-// Copyright (C) Microsoft Corporation. All rights reserved.
-
 import { esbuildPlugin } from '@web/dev-server-esbuild';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { URL, fileURLToPath } from 'url';

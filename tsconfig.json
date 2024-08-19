@@ -20,7 +20,8 @@
   },
   "include": [
     "./src/**/*",
-    "./demo/**/*"
+    "./demo/**/*",
+    "./test/**/*"
   ],
   "exclude": [
     "./node_modules"
