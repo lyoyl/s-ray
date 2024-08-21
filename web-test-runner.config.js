@@ -3,7 +3,7 @@ import { playwrightLauncher } from '@web/test-runner-playwright';
 import { URL, fileURLToPath } from 'url';
 
 export const baseConfig = {
-  files: ['test/*.spec.ts'],
+  files: ['src/**/*.spec.ts'],
   plugins: [
     esbuildPlugin({
       ts: true,

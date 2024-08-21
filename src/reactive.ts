@@ -1,32 +1,16 @@
-import { SBaseElement } from './SBaseElement.js';
+import { currentInstance } from "./defineElement.js";
 
-let computerNameStack: string[] = [];
+let uniqueId = 0;
 
-export function reactive(target: SBaseElement, key: string) {
-  let value = target[key];
-  const computers = new Set<string>();
-  Object.defineProperty(target, key, {
-    get() {
-      computerNameStack.forEach(computerName => computers.add(computerName));
-      return value;
+function ref(value: unknown) {
+  let _val = value;
+  const symbol = Symbol.for(`ref-${uniqueId++}`);
+  return {
+    get value() {
+      return _val;
     },
-    set(newValue) {
-      if (newValue === value) {
-        return;
-      }
-      value = newValue;
-      target.render.call(this, key, newValue, computers);
+    set value(newValue) {
+      _val = newValue;
     },
-  });
-}
-
-export function computed(target: SBaseElement, key: string, descriptor: PropertyDescriptor) {
-  const originalGet = descriptor.get!;
-  // TODO: Check and make sure the originalGet is a function
-  descriptor.get = function() {
-    computerNameStack.push(key);
-    const value = originalGet.call(this);
-    computerNameStack.pop();
-    return value;
-  };
+ };
 }
