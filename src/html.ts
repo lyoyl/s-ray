@@ -2,19 +2,29 @@ export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
 
-type PrimitiveInterpolators = string | number | boolean | null | undefined;
 type FunctionInterpolator = (...args: any[]) => unknown;
-type DynamicInterpolators = FunctionInterpolator | Template
-type Interpolator = PrimitiveInterpolators | DynamicInterpolators;
+type DynamicInterpolators = FunctionInterpolator | Template;
 
 type Fixer = (...args: any[]) => void;
 
-function isDynamicInterpolator(value: Interpolator): value is DynamicInterpolators {
-  return isFuncInterpolator(value) || value instanceof Template;
+function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
+  return isFuncInterpolator(value) || isTemplate(value);
 }
 
-function isFuncInterpolator(value: Interpolator): value is FunctionInterpolator {
+function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
   return typeof value === 'function';
+}
+
+function isTemplate(value: unknown): value is Template {
+  return value instanceof Template;
+}
+
+function createTextNode(text: string) {
+  return document.createTextNode(text);
+}
+
+function createComment(text: string) {
+  return document.createComment(text);
 }
 
 export class Template {
@@ -25,12 +35,18 @@ export class Template {
   // it will be parsed by template parser.
   doc: DocumentFragment;
 
+  // Keep track of the root nodes of the template's document fragment
+  rootNodes: Node[] = [];
+
   dynamicPartToGetterMap: Map<string, DynamicInterpolators>;
   dynamicPartToFixerMap: Map<string, Fixer> = new Map();
 
+  isInUse = false;
+
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
     this.originalDoc = originalDoc;
-    this.doc = originalDoc.cloneNode(true) as DocumentFragment
+    this.doc = originalDoc.cloneNode(true) as DocumentFragment;
+    this.rootNodes = Array.from(this.doc.childNodes);
     this.dynamicPartToGetterMap = dynamicPartToGetterMap;
     this.#parseTemplate(this.doc);
     this.dynamicPartToFixerMap.forEach(fixer => fixer());
@@ -39,19 +55,36 @@ export class Template {
   clone() {
     /**
      * In case where a template could be shared by multiple custom elements:
-     * 
+     *
      * case 1: declare a template in a shared module / global scope
      * export const template = html`<div>${funcInterpolator}</div>`;
-     * 
+     *
      * case 2: the template is used in multiple places in another template
      * const templateA = html`<div>${() => 1}</div>`;
      * const templateB = html`<div>${templateA} -- ${templateA}</div>`;
-     * 
+     *
      * In any of the above cases, we should clone a new template instance from the original template,
      * these template instances are going to share the same dynamicPartToGetterMap so that
      * all the instances will be collected by those reactive data it depends on.
      */
     return new Template(this.originalDoc, this.dynamicPartToGetterMap);
+  }
+
+  /**
+   * When the template is switched out of the active DOM tree, we should recycle the root nodes
+   * from the active DOM tree to the template's document fragment.
+   */
+  recycle() {
+    this.rootNodes.forEach(node => this.doc.appendChild(node));
+  }
+
+  triggerRender(dynamicPartSpecifier: string = '') {
+    if (dynamicPartSpecifier) {
+      const fixer = this.dynamicPartToFixerMap.get(dynamicPartSpecifier);
+      fixer && fixer();
+      return;
+    }
+    this.dynamicPartToFixerMap.forEach(fixer => fixer());
   }
 
   #parseTemplate(doc: DocumentFragment) {
@@ -89,6 +122,8 @@ export class Template {
   }
 
   #parseAttribute(attribute: Attr) {
+    bindingRE.lastIndex = 0;
+
     const name = attribute.name;
 
     if (name.startsWith('@')) {
@@ -114,10 +149,11 @@ export class Template {
       this.dynamicPartToFixerMap.set(dynamicPartSpecifier, fixer);
       m = bindingRE.exec(pattern);
     }
-    bindingRE.lastIndex = 0;
   }
 
   #parseEvent(attribute: Attr) {
+    bindingRE.lastIndex = 0;
+
     const name = attribute.name;
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
@@ -127,7 +163,7 @@ export class Template {
     }
     const eventName = name.slice(1);
     const dynamicPartSpecifier = m[0];
-    const handler = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)
+    const handler = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
       // TODO: add dev only error
       return;
@@ -137,11 +173,11 @@ export class Template {
     attribute.ownerElement?.removeAttribute(name);
 
     // TODO: need cleanup mechanism
-
-    bindingRE.lastIndex = 0;
   }
 
   #parseRef(attribute: Attr) {
+    bindingRE.lastIndex = 0;
+
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
@@ -149,7 +185,7 @@ export class Template {
       return;
     }
     const dynamicPartSpecifier = m[0];
-    const refSetter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)
+    const refSetter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(refSetter)) {
       // TODO: add dev only error
       return;
@@ -159,27 +195,84 @@ export class Template {
 
     // remove the attribute
     attribute.ownerElement?.removeAttribute(attribute.name);
-    bindingRE.lastIndex = 0;
   }
 
   #parseText(text: Text) {
+    bindingRE.lastIndex = 0;
+
     const content = text.nodeValue || '';
     let m = bindingRE.exec(content);
-    while (m) {
-      const dynamicPartSpecifier = m[0];
-      const fixer = () => {
-        const getter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
-        if (!isFuncInterpolator(getter)) {
-          // TODO: add dev only error
-          return;
-        }
-        // TODO: only set nodeValue once
-        text.nodeValue = text.nodeValue!.replace(dynamicPartSpecifier, String(getter()));
-      };
-      this.dynamicPartToFixerMap.set(dynamicPartSpecifier, fixer);
-      m = bindingRE.exec(content);
+    if (!m) {
+      // Static text, return
+      return;
     }
-    bindingRE.lastIndex = 0;
+    const dynamicPartSpecifier = m[0];
+    if (!this.dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
+      // TODO: add dev only error
+    }
+    /**
+     * split the text into two parts based on the dynamic part specifier:
+     * spliting the following text:
+     *   'Static text dynamicPartSpecifier1 more static text dynamicPartSpecifier2'
+     * into:
+     *  ['Static text ', ' more static text dynamicPartSpecifier2']
+     */
+    const texts = content.split(dynamicPartSpecifier);
+    if (texts.length !== 2) {
+      // TODO: add dev only error, the texts array should exactly have 2 elements
+    }
+
+    const anchorNode = createComment('anchor' /* TODO: add debug info in dev mode */);
+    let nodes: Node[] = [];
+    let dynamicNode: Text | Template = createTextNode('');
+    let remainingTextNode: Text | null = null;
+    if (texts[0] === '' && texts[1] === '') {
+      // Which means the text is only the dynamic part specifier: 'dynamicPartSpecifier'
+      nodes = [dynamicNode, anchorNode];
+    } else if (texts[0] === '') {
+      // Which means the dynamic part specifier is at the beginning of the text: 'dynamicPartSpecifier more static text'
+      remainingTextNode = createTextNode(texts[1]);
+      nodes = [dynamicNode, anchorNode, remainingTextNode];
+    } else if (texts[1] === '') {
+      // Which means the dynamic part specifier is at the end of the text: 'Static text dynamicPartSpecifier'
+      nodes = [createTextNode(texts[0]), dynamicNode, anchorNode];
+    } else {
+      // Which means the dynamic part specifier is in the middle of the text: 'Static text dynamicPartSpecifier more static text'
+      remainingTextNode = createTextNode(texts[1]);
+      nodes = [createTextNode(texts[0]), dynamicNode, anchorNode, remainingTextNode];
+    }
+
+    text.replaceWith(...nodes);
+
+    // Process the remaining text node recursively
+    if (remainingTextNode) {
+      this.#parseText(remainingTextNode);
+    }
+
+    const fixer = () => {
+      const dynamicInterpolator = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)!;
+      const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
+      if (isTemplate(dynamicNode)) {
+        dynamicNode.recycle();
+      } else {
+        dynamicNode.remove();
+      }
+      if (isTemplate(value)) {
+        const maybeCloned = value.isInUse ? value.clone() : value;
+        dynamicNode = maybeCloned;
+        anchorNode.parentNode!.insertBefore(maybeCloned.doc, anchorNode);
+        /**
+         * Mark it as in use, so that when the same template instance is used multiple times,
+         * we can clone a new one
+         */
+        value.isInUse = true;
+      } else {
+        dynamicNode = createTextNode(String(value));
+        anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
+      }
+    };
+
+    this.dynamicPartToFixerMap.set(dynamicPartSpecifier, fixer);
   }
 }
 
@@ -187,7 +280,7 @@ const templateCache = new Map<string, Template>();
 
 export function html(
   strings: TemplateStringsArray,
-  ...values: Interpolator[]
+  ...values: unknown[]
 ): Template {
   let dynamicPartId = 0;
   const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
@@ -207,7 +300,7 @@ export function html(
     // We need to update the dynamic parts
     return new Template(cachedTpl.originalDoc, dynamicPartToGetterMap);
   }
-  const template = document.createElement('template');  
+  const template = document.createElement('template');
   template.innerHTML = templateString;
   const tpl = new Template(template.content, dynamicPartToGetterMap);
   templateCache.set(templateString, tpl);

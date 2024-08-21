@@ -1,5 +1,3 @@
-import { currentInstance } from "./defineElement.js";
-
 let uniqueId = 0;
 
 function ref(value: unknown) {
@@ -12,5 +10,5 @@ function ref(value: unknown) {
     set value(newValue) {
       _val = newValue;
     },
- };
+  };
 }

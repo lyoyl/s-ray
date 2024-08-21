@@ -67,7 +67,7 @@ describe('The html function', () => {
     expect(template.doc.querySelector('div')).to.equal(dom);
   });
 
-  it('a template is used by another template', () => {
+  it('a template is used by another template multiple times', () => {
     const funcInterpolator = () => 1;
     const templateA = html`<p>${funcInterpolator}</p>`;
     const templateB = html`<div>${templateA} -- ${templateA}</div>`;
@@ -75,5 +75,17 @@ describe('The html function', () => {
     expect(templateB.doc.querySelectorAll('p')[0].textContent).to.equal('1');
     expect(templateB.doc.querySelectorAll('p')[1].textContent).to.equal('1');
     expect(templateB.doc.querySelector('div')!.textContent).to.equal('1 -- 1');
+  });
+
+  it('a function interpolator that returns a template', () => {
+    const funcInterpolator = () => html`<p>1</p>`;
+    const template = html`<div>${funcInterpolator}</div>`;
+    expect(template.doc.querySelector('div')!.outerHTML).to.equal('<div><p>1</p><!--anchor--></div>');
+
+    // Can be used multiple times
+    const template2 = html`<div>${funcInterpolator} -- ${funcInterpolator}</div>`;
+    expect(template2.doc.querySelector('div')!.outerHTML).to.equal(
+      '<div><p>1</p><!--anchor--> -- <p>1</p><!--anchor--></div>',
+    );
   });
 });

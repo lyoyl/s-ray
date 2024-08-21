@@ -1,4 +1,4 @@
-import { Template } from "./html.js";
+import { Template } from './html.js';
 
 interface SetupResult {
   template: Template;
@@ -37,9 +37,12 @@ class SRayElement extends HTMLElement {
 }
 
 export function defineElement(options: ComponentOptions) {
-  customElements.define(options.name, class extends SRayElement{
-    constructor() {
-      super(options);
-    }
-  });
+  customElements.define(
+    options.name,
+    class extends SRayElement {
+      constructor() {
+        super(options);
+      }
+    },
+  );
 }
