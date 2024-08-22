@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { fake } from 'sinon';
 import { html } from './html.js';
 
 describe('The html function', () => {
@@ -87,5 +88,60 @@ describe('The html function', () => {
     expect(template2.doc.querySelector('div')!.outerHTML).to.equal(
       '<div><p>1</p><!--anchor--> -- <p>1</p><!--anchor--></div>',
     );
+  });
+
+  it('render templates conditionally', () => {
+    const tplA = html`<p>1</p>`;
+    const tplB = html`<p>2</p>`;
+    let condition = true;
+    const template = html`<div>${() => condition ? tplA : tplB}</div>`;
+    expect(template.doc.querySelector('div')!.textContent).to.equal('1');
+
+    condition = false;
+    template.triggerRender();
+    expect(template.doc.querySelector('div')!.textContent).to.equal('2');
+
+    condition = true;
+    template.triggerRender();
+    expect(template.doc.querySelector('div')!.textContent).to.equal('1');
+  });
+
+  it('conditional rendering with a template and a non-template value', () => {
+    const tplA = html`<p>1</p>`;
+    const staticValue = 'hello world';
+    let condition = true;
+    const template = html`<div>${() => condition ? tplA : staticValue}</div>`;
+    expect(template.doc.querySelector('div')!.textContent).to.equal('1');
+
+    condition = false;
+    template.triggerRender();
+    expect(template.doc.querySelector('div')!.textContent).to.equal(staticValue);
+
+    condition = true;
+    template.triggerRender();
+    expect(template.doc.querySelector('div')!.textContent).to.equal('1');
+  });
+
+  it('template recycling', () => {
+    const template = html`<div></div>`;
+    const div1 = template.doc.querySelector('div');
+
+    document.body.append(template.doc);
+    expect(document.body.querySelector('div')).to.equal(div1);
+    expect(template.doc.querySelector('div')).to.be.null;
+
+    template.recycle();
+    expect(document.body.querySelector('div')).to.be.null;
+    expect(template.doc.querySelector('div')).to.equal(div1);
+  });
+
+  it('event binding', () => {
+    const handler = fake();
+    const template = html`<button @click=${handler}></button>`;
+    document.body.append(template.doc);
+
+    document.body.querySelector('button')!.click();
+    expect(handler.calledOnce).to.be.true;
+    expect(handler.firstCall.args[0]).to.be.instanceOf(MouseEvent);
   });
 });

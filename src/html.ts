@@ -168,7 +168,7 @@ export class Template {
       // TODO: add dev only error
       return;
     }
-    attribute.ownerElement?.addEventListener(eventName, handler);
+    attribute.ownerElement?.addEventListener(eventName, e => handler(e));
     // remove the attribute
     attribute.ownerElement?.removeAttribute(name);
 
