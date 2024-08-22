@@ -4,6 +4,13 @@ import { domRef } from './domRef.js';
 import { html } from './html.js';
 
 describe('The html function', () => {
+  it('html`` should be lazy parsed', () => {
+    const template = html`<div>${() => 1}</div>`;
+    expect(template.isParsed).to.be.false;
+    // the template will be parsed and initialized when its .doc property is accessed
+    expect(template.doc).to.be.instanceOf(DocumentFragment);
+    expect(template.isParsed).to.be.true;
+  });
   it('should collect dynamic parts', () => {
     const staticVar = 1;
     const funcInterpolator = () => 1;
@@ -129,15 +136,20 @@ describe('The html function', () => {
     expect(template.doc.querySelector('div')!.textContent).to.equal('1');
   });
 
-  it('template recycling', () => {
+  it('template retrieving', () => {
     const template = html`<div></div>`;
+    expect(template.isInUse).to.be.false;
+
     const div1 = template.doc.querySelector('div');
+    expect(template.isInUse).to.be.false;
 
     document.body.append(template.doc);
+    expect(template.isInUse).to.be.true;
     expect(document.body.querySelector('div')).to.equal(div1);
     expect(template.doc.querySelector('div')).to.be.null;
 
-    template.recycle();
+    template.retrieve();
+    expect(template.isInUse).to.be.false;
     expect(document.body.querySelector('div')).to.be.null;
     expect(template.doc.querySelector('div')).to.equal(div1);
   });

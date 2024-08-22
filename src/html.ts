@@ -25,52 +25,82 @@ function isTemplate(value: unknown): value is Template {
 export class Template {
   // The templates with same pattern should share the same DocumentFragment,
   // it is unparsed.
-  originalDoc: DocumentFragment;
+  #originalDoc: DocumentFragment;
+  get originalDoc() {
+    return this.#originalDoc;
+  }
+
   // This is cloned from originalDoc and will be used to render the template,
   // it will be parsed by template parser.
-  doc: DocumentFragment;
+  #doc: DocumentFragment | null = null;
+  // Which means that html`` is lazy, it will only be initialized when it is used, i.e. its publick doc property is accessed.
+  // So make a call to html`` is cheap.
+  get doc() {
+    if (!this.#doc) {
+      this.#init();
+    }
+    return this.#doc!;
+  }
+  get isParsed() {
+    return this.#doc !== null;
+  }
 
-  // Keep track of the root nodes of the template's document fragment
-  rootNodes: Node[] = [];
+  // Keep track of the root nodes of the template's document fragment,
+  // so that we can retrieve them.
+  #rootNodes: Node[] = [];
+
+  /**
+   * When true, it means the template is currently in use, the this.doc will be an empty fragment,
+   * when false, it means the template is not appended/inserted to the active DOM tree or another document fragment,
+   * so this.doc contains everything it has.
+   */
+  get isInUse() {
+    return !!this.#doc && this.#doc.childNodes.length === 0;
+  }
 
   dynamicPartToGetterMap: Map<string, DynamicInterpolators>;
   dynamicPartToFixerMap: Map<string, Fixer> = new Map();
 
-  isInUse = false;
-
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
-    this.originalDoc = originalDoc;
-    this.doc = originalDoc.cloneNode(true) as DocumentFragment;
-    this.rootNodes = Array.from(this.doc.childNodes);
+    this.#originalDoc = originalDoc;
     this.dynamicPartToGetterMap = dynamicPartToGetterMap;
-    this.#parseTemplate(this.doc);
-    this.dynamicPartToFixerMap.forEach(fixer => fixer());
   }
 
-  clone() {
-    /**
-     * In case where a template could be shared by multiple custom elements:
-     *
-     * case 1: declare a template in a shared module / global scope
-     * export const template = html`<div>${funcInterpolator}</div>`;
-     *
-     * case 2: the template is used in multiple places in another template
-     * const templateA = html`<div>${() => 1}</div>`;
-     * const templateB = html`<div>${templateA} -- ${templateA}</div>`;
-     *
-     * In any of the above cases, we should clone a new template instance from the original template,
-     * these template instances are going to share the same dynamicPartToGetterMap so that
-     * all the instances will be collected by those reactive data it depends on.
-     */
-    return new Template(this.originalDoc, this.dynamicPartToGetterMap);
+  #init() {
+    this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
+    this.#rootNodes = Array.from(this.#doc.childNodes);
+    this.#parseTemplate(this.#doc);
+    this.triggerRender();
   }
 
   /**
-   * When the template is switched out of the active DOM tree, we should recycle the root nodes
-   * from the active DOM tree to the template's document fragment.
+   * In case where a template could be shared by multiple custom elements:
+   *
+   * case 1: declare a template in a shared module / global scope
+   * export const template = html`<div>${funcInterpolator}</div>`;
+   *
+   * case 2: the template is used in multiple places in another template
+   * const templateA = html`<div>${() => 1}</div>`;
+   * const templateB = html`<div>${templateA} -- ${templateA}</div>`;
+   *
+   * In any of the above cases, we should clone a new template instance from the original template,
+   * these template instances are going to share the same dynamicPartToGetterMap so that
+   * all the instances will be collected by those reactive data it depends on.
    */
-  recycle() {
-    this.rootNodes.forEach(node => this.doc.appendChild(node));
+  clone() {
+    return new Template(this.#originalDoc, this.dynamicPartToGetterMap);
+  }
+
+  /**
+   * A Template keeps track of its root nodes of its document fragment,
+   * if the nodes of its document fragment are appended to the active DOM tree or
+   * another Template, we can make a call to retrieve() to get the nodes back.
+   */
+  retrieve() {
+    if (!this.isInUse) {
+      return;
+    }
+    this.#rootNodes.forEach(node => this.#doc!.appendChild(node));
   }
 
   triggerRender(dynamicPartSpecifier: string = '') {
@@ -248,7 +278,7 @@ export class Template {
       const dynamicInterpolator = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)!;
       const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
       if (isTemplate(dynamicNode)) {
-        dynamicNode.recycle();
+        dynamicNode.retrieve();
       } else {
         dynamicNode.remove();
       }
@@ -256,11 +286,6 @@ export class Template {
         const maybeCloned = value.isInUse ? value.clone() : value;
         dynamicNode = maybeCloned;
         anchorNode.parentNode!.insertBefore(maybeCloned.doc, anchorNode);
-        /**
-         * Mark it as in use, so that when the same template instance is used multiple times,
-         * we can clone a new one
-         */
-        value.isInUse = true;
       } else {
         dynamicNode = createTextNode(String(value));
         anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
@@ -271,7 +296,7 @@ export class Template {
   }
 }
 
-const templateCache = new Map<string, Template>();
+const templateCache = new Map<string, DocumentFragment>();
 
 export function html(
   strings: TemplateStringsArray,
@@ -295,13 +320,13 @@ export function html(
     }),
   );
   if (templateCache.has(templateString)) {
-    const cachedTpl = templateCache.get(templateString)!;
+    const cachedOriginalDoc = templateCache.get(templateString)!;
     // We need to update the dynamic parts
-    return new Template(cachedTpl.originalDoc, dynamicPartToGetterMap);
+    return new Template(cachedOriginalDoc, dynamicPartToGetterMap);
   }
   const template = document.createElement('template');
   template.innerHTML = templateString;
   const tpl = new Template(template.content, dynamicPartToGetterMap);
-  templateCache.set(templateString, tpl);
+  templateCache.set(templateString, tpl.originalDoc);
   return tpl;
 }
