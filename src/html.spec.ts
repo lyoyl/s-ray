@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { fake } from 'sinon';
+import { domRef } from './domRef.js';
 import { html } from './html.js';
 
 describe('The html function', () => {
@@ -66,6 +67,12 @@ describe('The html function', () => {
     const domRefSetter = (el: Element) => dom = el;
     const template = html`<div ref=${domRefSetter}></div>`;
     expect(template.doc.querySelector('div')).to.equal(dom);
+  });
+
+  it('domRef interpolation', () => {
+    const el = domRef<HTMLHeadingElement>();
+    const template = html`<h1 ${el}>List</h1>`;
+    expect(template.doc.querySelector('h1') === el.value).to.be.true;
   });
 
   it('a template is used by another template multiple times', () => {

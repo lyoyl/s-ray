@@ -1,14 +1,17 @@
+import { createComment, createTextNode } from './dom.js';
+import { DomRef, isDomRef } from './domRef.js';
+
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
 
 type FunctionInterpolator = (...args: any[]) => unknown;
-type DynamicInterpolators = FunctionInterpolator | Template;
+type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 type Fixer = (...args: any[]) => void;
 
 function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
-  return isFuncInterpolator(value) || isTemplate(value);
+  return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value);
 }
 
 function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
@@ -17,14 +20,6 @@ function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
 
 function isTemplate(value: unknown): value is Template {
   return value instanceof Template;
-}
-
-function createTextNode(text: string) {
-  return document.createTextNode(text);
-}
-
-function createComment(text: string) {
-  return document.createComment(text);
 }
 
 export class Template {
@@ -289,6 +284,10 @@ export function html(
     ...values.map(value => {
       if (isDynamicInterpolator(value)) {
         const dynamicPartPlaceholder = `${tplPrefix}Dynamic${dynamicPartId++}${tplSuffix}`;
+        if (isDomRef(value)) {
+          dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
+          return `ref=${dynamicPartPlaceholder}`;
+        }
         dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
         return dynamicPartPlaceholder;
       }

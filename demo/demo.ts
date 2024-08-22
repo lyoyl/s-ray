@@ -1,18 +1,11 @@
-import { html } from '../src/html.js';
+import { domRef, html } from '../src/index.js';
 
-let a = 0;
-const funcInterpolator = () => a++;
-const li = html`<li>${funcInterpolator}</li>`;
-const ul = html`
-  <ul>
-    ${li}
-    ${li}
-  </div>
-`;
+const h1 = domRef<HTMLHeadingElement>();
 
 const template = html`
-  <h1>List</h1>
-  ${ul}
+  <h1 ${h1}>List</h1>
 `;
+
+console.log(h1.value);
 
 document.body.appendChild(template.doc);
