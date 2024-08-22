@@ -163,4 +163,70 @@ describe('The html function', () => {
     expect(handler.calledOnce).to.be.true;
     expect(handler.firstCall.args[0]).to.be.instanceOf(MouseEvent);
   });
+
+  it('List rendering', () => {
+    let data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+    const renderList = () => {
+      return data.map(item => html`<li>${() => item.name}</li>`);
+    };
+    const template = html`
+      <ul>
+        ${renderList}
+      </ul>
+    `;
+    expect(template.doc.querySelectorAll('li').length).to.equal(3);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Bob');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    // Update data
+    data = [
+      { id: 3, name: 'Charlie' },
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 4, name: 'David' },
+    ];
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(4);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Charlie');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Bob');
+    expect(template.doc.querySelectorAll('li')[3].textContent).to.equal('David');
+  });
+
+  it('List rendering with conditional rendering', () => {
+    let data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+    const renderList = () => {
+      return data.map(item => html`<li>${() => item.name}</li>`);
+    };
+
+    let isLoading = true;
+    const template = html`
+      <ul>
+        ${() => isLoading ? html`<li>Loading...</li>` : renderList()}
+      </ul>
+    `;
+    expect(template.doc.querySelectorAll('li').length).to.equal(1);
+    expect(template.doc.querySelector('li')!.textContent).to.equal('Loading...');
+
+    isLoading = false;
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(3);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Bob');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    isLoading = true;
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(1);
+    expect(template.doc.querySelector('li')!.textContent).to.equal('Loading...');
+  });
 });

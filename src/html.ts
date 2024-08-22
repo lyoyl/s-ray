@@ -248,26 +248,26 @@ export class Template {
     }
 
     const anchorNode = createComment('anchor' /* TODO: add debug info in dev mode */);
-    let nodes: Node[] = [];
-    let dynamicNode: Text | Template = createTextNode('');
+    let nodesToBeRendered: Node[] = [];
+    let dynamicNode: Text | Template | Template[] = createTextNode('');
     let remainingTextNode: Text | null = null;
     if (texts[0] === '' && texts[1] === '') {
       // Which means the text is only the dynamic part specifier: 'dynamicPartSpecifier'
-      nodes = [dynamicNode, anchorNode];
+      nodesToBeRendered = [dynamicNode, anchorNode];
     } else if (texts[0] === '') {
       // Which means the dynamic part specifier is at the beginning of the text: 'dynamicPartSpecifier more static text'
       remainingTextNode = createTextNode(texts[1]);
-      nodes = [dynamicNode, anchorNode, remainingTextNode];
+      nodesToBeRendered = [dynamicNode, anchorNode, remainingTextNode];
     } else if (texts[1] === '') {
       // Which means the dynamic part specifier is at the end of the text: 'Static text dynamicPartSpecifier'
-      nodes = [createTextNode(texts[0]), dynamicNode, anchorNode];
+      nodesToBeRendered = [createTextNode(texts[0]), dynamicNode, anchorNode];
     } else {
       // Which means the dynamic part specifier is in the middle of the text: 'Static text dynamicPartSpecifier more static text'
       remainingTextNode = createTextNode(texts[1]);
-      nodes = [createTextNode(texts[0]), dynamicNode, anchorNode, remainingTextNode];
+      nodesToBeRendered = [createTextNode(texts[0]), dynamicNode, anchorNode, remainingTextNode];
     }
 
-    text.replaceWith(...nodes);
+    text.replaceWith(...nodesToBeRendered);
 
     // Process the remaining text node recursively
     if (remainingTextNode) {
@@ -277,18 +277,61 @@ export class Template {
     const fixer = () => {
       const dynamicInterpolator = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)!;
       const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
-      if (isTemplate(dynamicNode)) {
-        dynamicNode.retrieve();
+
+      const previous = dynamicNode;
+      const current = value;
+
+      if (Array.isArray(previous) && !Array.isArray(current)) {
+        // Unmount the old dynamic node
+        previous.forEach(tpl => tpl.retrieve());
+
+        // Mount the new dynamic node
+        if (isTemplate(current)) {
+          dynamicNode = current.isInUse ? current.clone() : current;
+          anchorNode.parentNode!.insertBefore(dynamicNode.doc, anchorNode);
+        } else {
+          dynamicNode = createTextNode(String(current));
+          anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
+        }
+      } else if (!Array.isArray(previous) && Array.isArray(current)) {
+        // Unmount the old dynamic node
+        if (isTemplate(previous)) {
+          previous.retrieve();
+        } else {
+          previous.remove();
+        } // Mount the new dynamic node
+        // TODO: add dev only check to make sure the current is a template array
+
+        (current as Template[]).forEach(tpl => {
+          anchorNode.parentNode!.insertBefore(tpl.doc, anchorNode);
+        });
+        dynamicNode = current;
+      } else if (!Array.isArray(previous) && !Array.isArray(current)) {
+        // Unmount the old dynamic node
+        if (isTemplate(previous)) {
+          previous.retrieve();
+        } else {
+          previous.remove();
+        }
+
+        // Mount the new dynamic node
+        if (isTemplate(current)) {
+          dynamicNode = current.isInUse ? current.clone() : current;
+          anchorNode.parentNode!.insertBefore(dynamicNode.doc, anchorNode);
+        } else {
+          dynamicNode = createTextNode(String(current));
+          anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
+        }
       } else {
-        dynamicNode.remove();
-      }
-      if (isTemplate(value)) {
-        const maybeCloned = value.isInUse ? value.clone() : value;
-        dynamicNode = maybeCloned;
-        anchorNode.parentNode!.insertBefore(maybeCloned.doc, anchorNode);
-      } else {
-        dynamicNode = createTextNode(String(value));
-        anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
+        // TODO: Use this simple way for now, we will use diff algorithm later to reuse DOM
+
+        // Unmount the old dynamic node
+        (previous as Template[]).forEach(tpl => tpl.retrieve()); // Mount the new dynamic node
+
+        (current as Template[]).forEach(tpl => {
+          anchorNode.parentNode!.insertBefore(tpl.doc, anchorNode);
+        });
+        dynamicNode = current as Template[];
       }
     };
 

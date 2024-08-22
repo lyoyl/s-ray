@@ -9,7 +9,7 @@ const data = [
 ];
 
 const renderList = () => {
-  return data.map(item => html`<li>${item.name}</li>`);
+  return data.map(item => html`<li>${() => item.name}</li>`);
 };
 
 const template = html`
