@@ -2,13 +2,16 @@ import { html, ref } from '../src/index.js';
 
 const counter = ref(0);
 
+counter.value = 100;
+
 function handleClick(e: MouseEvent) {
   counter.value += 1;
   e.stopPropagation();
 }
 
 const templateA = html`
-  <button @click=${handleClick}>Cournter: <span>${() => counter.value}~</span>!</button>
+  <button @click=${handleClick}>Cournter: <span>${() => counter.value}~</span>! ${() => counter.value}~</span>! ${() =>
+  counter.value}~</span>!</button>
 `;
 
 const toggle = ref(true);
