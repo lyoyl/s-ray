@@ -19,10 +19,10 @@ const template = html`
   </ul>
 `;
 
-console.log(h1.value);
-
 console.log('---', template.doc.childNodes.length);
 
 document.body.appendChild(template.doc);
+
+console.log(h1.value);
 
 console.log('---', template.doc.childNodes.length);

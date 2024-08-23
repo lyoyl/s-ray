@@ -1,5 +1,5 @@
-import { createComment, createTextNode } from './dom.js';
 import { DomRef, isDomRef } from './domRef.js';
+import { createComment, createTextNode, isArray } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
@@ -163,18 +163,31 @@ export class Template {
     let m = bindingRE.exec(pattern);
     while (m) {
       const dynamicPartSpecifier = m[0];
-      const fixer = () => {
-        const getter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
-        if (!isFuncInterpolator(getter)) {
-          // TODO: add dev only error
-          return;
-        }
-        attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, String(getter())));
+      const fixerArgs = {
+        dynamicPartSpecifier,
+        name,
+        attribute,
+        pattern,
       };
-      this.dynamicPartToFixerMap.set(dynamicPartSpecifier, fixer);
+      this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#attributeFixer.bind(null, fixerArgs));
       m = bindingRE.exec(pattern);
     }
   }
+
+  #attributeFixer = (fixerArgs: {
+    dynamicPartSpecifier: string,
+    name: string,
+    attribute: Attr,
+    pattern: string,
+  }) => {
+    const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
+    const getter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
+    if (!isFuncInterpolator(getter)) {
+      // TODO: add dev only error
+      return;
+    }
+    attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, String(getter())));
+  };
 
   #parseEvent(attribute: Attr) {
     bindingRE.lastIndex = 0;
@@ -274,69 +287,85 @@ export class Template {
       this.#parseText(remainingTextNode);
     }
 
-    const fixer = () => {
-      const dynamicInterpolator = this.dynamicPartToGetterMap.get(dynamicPartSpecifier)!;
-      const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
-
-      const previous = dynamicNode;
-      const current = value;
-
-      if (Array.isArray(previous) && !Array.isArray(current)) {
-        // Unmount the old dynamic node
-        previous.forEach(tpl => tpl.retrieve());
-
-        // Mount the new dynamic node
-        if (isTemplate(current)) {
-          dynamicNode = current.isInUse ? current.clone() : current;
-          anchorNode.parentNode!.insertBefore(dynamicNode.doc, anchorNode);
-        } else {
-          dynamicNode = createTextNode(String(current));
-          anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
-        }
-      } else if (!Array.isArray(previous) && Array.isArray(current)) {
-        // Unmount the old dynamic node
-        if (isTemplate(previous)) {
-          previous.retrieve();
-        } else {
-          previous.remove();
-        } // Mount the new dynamic node
-        // TODO: add dev only check to make sure the current is a template array
-
-        (current as Template[]).forEach(tpl => {
-          anchorNode.parentNode!.insertBefore(tpl.doc, anchorNode);
-        });
-        dynamicNode = current;
-      } else if (!Array.isArray(previous) && !Array.isArray(current)) {
-        // Unmount the old dynamic node
-        if (isTemplate(previous)) {
-          previous.retrieve();
-        } else {
-          previous.remove();
-        }
-
-        // Mount the new dynamic node
-        if (isTemplate(current)) {
-          dynamicNode = current.isInUse ? current.clone() : current;
-          anchorNode.parentNode!.insertBefore(dynamicNode.doc, anchorNode);
-        } else {
-          dynamicNode = createTextNode(String(current));
-          anchorNode.parentNode!.insertBefore(dynamicNode, anchorNode);
-        }
-      } else {
-        // TODO: Use this simple way for now, we will use diff algorithm later to reuse DOM
-
-        // Unmount the old dynamic node
-        (previous as Template[]).forEach(tpl => tpl.retrieve()); // Mount the new dynamic node
-
-        (current as Template[]).forEach(tpl => {
-          anchorNode.parentNode!.insertBefore(tpl.doc, anchorNode);
-        });
-        dynamicNode = current as Template[];
-      }
+    const fixerArgs = {
+      dynamicPartSpecifier,
+      dynamicNode,
+      anchorNode,
     };
 
-    this.dynamicPartToFixerMap.set(dynamicPartSpecifier, fixer);
+    this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#textFixer.bind(null, fixerArgs));
   }
+
+  #textFixer = (fixerArgs: {
+    dynamicPartSpecifier: string,
+    dynamicNode: Text | Template | Template[],
+    anchorNode: Comment,
+  }) => {
+    const dynamicInterpolator = this.dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
+    const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
+
+    const previous = fixerArgs.dynamicNode;
+    const current = value;
+
+    if (isArray(previous) && !isArray(current)) {
+      // Unmount the old dynamic node
+      previous.forEach(tpl => tpl.retrieve());
+
+      // Mount the new dynamic node
+      if (isTemplate(current)) {
+        fixerArgs.dynamicNode = current.isInUse ? current.clone() : current;
+        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
+      } else {
+        fixerArgs.dynamicNode = createTextNode(String(current));
+        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
+      }
+    } else if (!isArray(previous) && isArray(current)) {
+      // Unmount the old dynamic node
+      if (isTemplate(previous)) {
+        previous.retrieve();
+      } else {
+        previous.remove();
+      }
+
+      // Mount the new dynamic node
+      // TODO: add dev only check to make sure the current is a template array
+      (current as Template[]).forEach(tpl => {
+        fixerArgs.anchorNode.parentNode!.insertBefore(tpl.doc, fixerArgs.anchorNode);
+      });
+      fixerArgs.dynamicNode = current;
+    } else if (!isArray(previous) && !isArray(current)) {
+      // Unmount the old dynamic node
+      if (isTemplate(previous)) {
+        previous.retrieve();
+      } else {
+        previous.remove();
+      }
+
+      // Mount the new dynamic node
+      if (isTemplate(current)) {
+        fixerArgs.dynamicNode = current.isInUse ? current.clone() : current;
+        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
+      } else {
+        fixerArgs.dynamicNode = createTextNode(String(current));
+        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
+      }
+    } else {
+      // TODO: Use this simple way for now, we will use diff algorithm later to reuse DOM
+
+      /**
+       * Unmount the old dynamic node
+       */
+      (previous as Template[]).forEach(tpl => tpl.retrieve());
+
+      /**
+       * Mount the new dynamic node
+       */
+      (current as Template[]).forEach(tpl => {
+        fixerArgs.anchorNode.parentNode!.insertBefore(tpl.doc, fixerArgs.anchorNode);
+      });
+      fixerArgs.dynamicNode = current as Template[];
+    }
+  };
 }
 
 const templateCache = new Map<string, DocumentFragment>();

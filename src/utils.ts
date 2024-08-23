@@ -5,3 +5,7 @@ export function createTextNode(text: string) {
 export function createComment(text: string) {
   return document.createComment(text);
 }
+
+export function isArray(value: any): value is any[] {
+  return Array.isArray(value);
+}
