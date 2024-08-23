@@ -11,6 +11,7 @@ export function setCurrentDynamicPartSpecifier(specifier: string | null) {
 }
 
 type DynamicSpecifiers = Set<string>;
+type Deps = Map<Template, DynamicSpecifiers>;
 
 export type Deref<T> = T extends Ref<infer U> ? U : T;
 
