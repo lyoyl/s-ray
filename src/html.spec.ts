@@ -11,6 +11,7 @@ describe('The html function', () => {
     expect(template.doc).to.be.instanceOf(DocumentFragment);
     expect(template.isParsed).to.be.true;
   });
+
   it('should collect dynamic parts', () => {
     const staticVar = 1;
     const funcInterpolator = () => 1;
@@ -25,6 +26,19 @@ describe('The html function', () => {
     expect(template.dynamicPartToGetterMap.get('$$--Dynamic0--$$')).to.equal(funcInterpolator);
     expect(template.dynamicPartToGetterMap.has('$$--Dynamic1--$$')).to.be.true;
     expect(template.dynamicPartToGetterMap.get('$$--Dynamic1--$$')).to.equal(templateA);
+  });
+
+  it('two templates with the same static pattern should be considered as the same', () => {
+    const templateA = html`<h1>${() => 1}</h1>`;
+    const templateB = html`<h1>${() => 2}</h1>`;
+
+    templateA.adoptGettersFrom(templateB);
+    expect(templateA.doc.querySelector('h1')?.outerHTML).to.equal('<h1>2<!--anchor--></h1>');
+
+    const templateC = html`<h1>${html`<span>123</span>`}</h1>`;
+    templateA.adoptGettersFrom(templateC);
+    templateA.triggerRender();
+    expect(templateA.doc.querySelector('h1')?.outerHTML).to.equal('<h1><span>123</span><!--anchor--></h1>');
   });
 
   it('templates with same static pattern should hit the cache, but the dynamic parts shoud be updated', () => {
@@ -228,5 +242,84 @@ describe('The html function', () => {
     template.triggerRender();
     expect(template.doc.querySelectorAll('li').length).to.equal(1);
     expect(template.doc.querySelector('li')!.textContent).to.equal('Loading...');
+  });
+
+  it('List rendering with different length of children', () => {
+    let data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+    const renderList = () => {
+      return data.map(item => html`<li>${() => item.name}</li>`);
+    };
+
+    const template = html`
+      <ul>
+        ${renderList}
+      </ul>
+    `;
+    expect(template.doc.querySelectorAll('li').length).to.equal(3);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Bob');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    // Update data
+    data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(2);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Bob');
+
+    // Update data
+    data = [
+      { id: 3, name: 'Charlie' },
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(3);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Charlie');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Bob');
+  });
+
+  it('List rendering with different list items', () => {
+    let dataA = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+    const renderListA = () => {
+      return dataA.map(item => html`<li>${() => item.name}</li>`);
+    };
+
+    let dataB = [
+      { id: 1, price: 100 },
+      { id: 2, price: 200 },
+    ];
+    const renderListB = () => {
+      return dataB.map(item => html`<li>Price: ${() => item.price}</li>`);
+    };
+
+    let toggle = true;
+    const template = html`
+      <ul>
+        ${() => toggle ? renderListA() : renderListB()}
+      </ul>
+    `;
+    expect(template.doc.querySelectorAll('li').length).to.equal(3);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Bob');
+    expect(template.doc.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    toggle = false;
+    template.triggerRender();
+    expect(template.doc.querySelectorAll('li').length).to.equal(2);
+    expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Price: 100');
+    expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Price: 200');
   });
 });

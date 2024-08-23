@@ -91,6 +91,10 @@ export class Template {
     return new Template(this.#originalDoc, this.dynamicPartToGetterMap);
   }
 
+  cloneIfInUse() {
+    return this.isInUse ? this.clone() : this;
+  }
+
   /**
    * A Template keeps track of its root nodes of its document fragment,
    * if the nodes of its document fragment are appended to the active DOM tree or
@@ -101,6 +105,22 @@ export class Template {
       return;
     }
     this.#rootNodes.forEach(node => this.#doc!.appendChild(node));
+  }
+
+  /**
+   * If two templates are created from the same template pattern, they are considered the same.
+   * If two templates are the same, we can then use one template's dynamicPartToGetterMap to render the other template.
+   */
+  sameAs(other: Template) {
+    return this.#originalDoc === other.#originalDoc;
+  }
+
+  // This is useful in DOM updates during re-rendering.
+  adoptGettersFrom(other: Template) {
+    if (!this.sameAs(other)) {
+      return;
+    }
+    this.dynamicPartToGetterMap = other.dynamicPartToGetterMap;
   }
 
   triggerRender(dynamicPartSpecifier: string = '') {
@@ -168,6 +188,7 @@ export class Template {
         name,
         attribute,
         pattern,
+        oldValue: null,
       };
       this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#attributeFixer.bind(null, fixerArgs));
       m = bindingRE.exec(pattern);
@@ -179,6 +200,7 @@ export class Template {
     name: string,
     attribute: Attr,
     pattern: string,
+    oldValue: unknown,
   }) => {
     const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
     const getter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
@@ -186,7 +208,15 @@ export class Template {
       // TODO: add dev only error
       return;
     }
-    attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, String(getter())));
+
+    const newValue = String(getter());
+    if (fixerArgs.oldValue === newValue) {
+      // No need to update
+      return;
+    }
+    fixerArgs.oldValue = newValue;
+
+    attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, newValue));
   };
 
   #parseEvent(attribute: Attr) {
@@ -291,6 +321,7 @@ export class Template {
       dynamicPartSpecifier,
       dynamicNode,
       anchorNode,
+      oldValue: null,
     };
 
     this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#textFixer.bind(null, fixerArgs));
@@ -300,9 +331,16 @@ export class Template {
     dynamicPartSpecifier: string,
     dynamicNode: Text | Template | Template[],
     anchorNode: Comment,
+    oldValue: unknown,
   }) => {
     const dynamicInterpolator = this.dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
     const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
+
+    if (fixerArgs.oldValue === value) {
+      // No need to update
+      return;
+    }
+    fixerArgs.oldValue = value;
 
     const previous = fixerArgs.dynamicNode;
     const current = value;
@@ -313,7 +351,7 @@ export class Template {
 
       // Mount the new dynamic node
       if (isTemplate(current)) {
-        fixerArgs.dynamicNode = current.isInUse ? current.clone() : current;
+        fixerArgs.dynamicNode = current.cloneIfInUse();
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
       } else {
         fixerArgs.dynamicNode = createTextNode(String(current));
@@ -343,27 +381,45 @@ export class Template {
 
       // Mount the new dynamic node
       if (isTemplate(current)) {
-        fixerArgs.dynamicNode = current.isInUse ? current.clone() : current;
+        fixerArgs.dynamicNode = current.cloneIfInUse();
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
       } else {
         fixerArgs.dynamicNode = createTextNode(String(current));
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
       }
     } else {
-      // TODO: Use this simple way for now, we will use diff algorithm later to reuse DOM
+      const oldList = previous as Template[];
+      const newList = current as Template[];
+      const oldLen = oldList.length;
+      const newLen = newList.length;
+      let idx = 0;
 
-      /**
-       * Unmount the old dynamic node
-       */
-      (previous as Template[]).forEach(tpl => tpl.retrieve());
+      while (idx < oldLen && idx < newLen) {
+        const oldTpl = oldList[idx];
+        const newTpl = newList[idx];
+        if (oldTpl.sameAs(newTpl)) {
+          oldTpl.adoptGettersFrom(newTpl);
+          oldTpl.triggerRender();
+        } else {
+          oldTpl.retrieve();
+          oldList[idx] = newTpl.cloneIfInUse();
+          fixerArgs.anchorNode.parentNode!.insertBefore(oldList[idx].doc, fixerArgs.anchorNode);
+        }
+        idx++;
+      }
 
-      /**
-       * Mount the new dynamic node
-       */
-      (current as Template[]).forEach(tpl => {
-        fixerArgs.anchorNode.parentNode!.insertBefore(tpl.doc, fixerArgs.anchorNode);
-      });
-      fixerArgs.dynamicNode = current as Template[];
+      if (oldLen > newLen) {
+        oldList.slice(idx).forEach(tpl => tpl.retrieve());
+        oldList.splice(idx);
+      } else if (oldLen < newLen) {
+        newList.slice(idx).forEach(tpl => {
+          const newTpl = tpl.cloneIfInUse();
+          oldList.push(newTpl);
+          fixerArgs.anchorNode.parentNode!.insertBefore(newTpl.doc, fixerArgs.anchorNode);
+        });
+      }
+
+      fixerArgs.dynamicNode = oldList;
     }
   };
 }
