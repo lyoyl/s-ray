@@ -1,32 +1,26 @@
-import { html } from '../src/index.js';
+import { html, ref } from '../src/index.js';
 
-let data = [
-  { id: 1, name: 'Alice' },
-  { id: 2, name: 'Bob' },
-  { id: 3, name: 'Charlie' },
-];
+const counter = ref(0);
 
-// create 10000 items
-for (let i = 0; i < 10000; i++) {
-  data.push({ id: i + 4, name: `User ${i + 4}` });
+function handleClick(e: MouseEvent) {
+  counter.value += 1;
+  e.stopPropagation();
 }
 
-const renderList = () => {
-  return data.map(item => html`<li>${() => item.name}</li>`);
-};
-
-const template = html`
-  <h1 @click=${handleClick}>List</h1>
-  <ul>
-    ${renderList}
-  </ul>
+const templateA = html`
+  <button @click=${handleClick}>Cournter: <span>${() => counter.value}~</span>!</button>
 `;
 
-function handleClick() {
-  console.log('clicked');
-  data[7].name += 'Hcy!';
-  data = [...data];
-  template.triggerRender();
+const toggle = ref(true);
+
+function handleToggle() {
+  toggle.value = !toggle.value;
 }
+
+const template = html`
+  <div style="border: 10px solid red;" @click="${handleToggle}">
+    ${() => toggle.value ? templateA : html`<div>Toggle is off</div>`}
+  </div>
+`;
 
 document.body.appendChild(template.doc);

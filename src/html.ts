@@ -1,4 +1,5 @@
 import { DomRef, isDomRef } from './domRef.js';
+import { setCurrentDynamicPartSpecifier, setCurrentTemplate } from './reactive.js';
 import { createComment, createTextNode, isArray } from './utils.js';
 
 export const tplPrefix = '$$--';
@@ -209,7 +210,7 @@ export class Template {
       return;
     }
 
-    const newValue = String(getter());
+    const newValue = String(this.#runGetter(getter, dynamicPartSpecifier));
     if (fixerArgs.oldValue === newValue) {
       // No need to update
       return;
@@ -334,7 +335,9 @@ export class Template {
     oldValue: unknown,
   }) => {
     const dynamicInterpolator = this.dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
-    const value = isFuncInterpolator(dynamicInterpolator) ? dynamicInterpolator() : dynamicInterpolator;
+    const value = isFuncInterpolator(dynamicInterpolator)
+      ? this.#runGetter(dynamicInterpolator, fixerArgs.dynamicPartSpecifier)
+      : dynamicInterpolator;
 
     if (fixerArgs.oldValue === value) {
       // No need to update
@@ -422,6 +425,15 @@ export class Template {
       fixerArgs.dynamicNode = oldList;
     }
   };
+
+  #runGetter(getter: FunctionInterpolator, dynamicPartSpecifier: string) {
+    setCurrentTemplate(this);
+    setCurrentDynamicPartSpecifier(dynamicPartSpecifier);
+    const value = getter();
+    setCurrentDynamicPartSpecifier(null);
+    setCurrentTemplate(null);
+    return value;
+  }
 }
 
 const templateCache = new Map<string, DocumentFragment>();
