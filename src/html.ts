@@ -59,12 +59,15 @@ export class Template {
     return !!this.#doc && this.#doc.childNodes.length === 0;
   }
 
-  dynamicPartToGetterMap: Map<string, DynamicInterpolators>;
-  dynamicPartToFixerMap: Map<string, Fixer> = new Map();
+  #dynamicPartToGetterMap: Map<string, DynamicInterpolators>;
+  get dynamicPartToGetterMap() {
+    return this.#dynamicPartToGetterMap;
+  }
+  #dynamicPartToFixerMap: Map<string, Fixer> = new Map();
 
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
     this.#originalDoc = originalDoc;
-    this.dynamicPartToGetterMap = dynamicPartToGetterMap;
+    this.#dynamicPartToGetterMap = dynamicPartToGetterMap;
   }
 
   #init() {
@@ -89,7 +92,7 @@ export class Template {
    * all the instances will be collected by those reactive data it depends on.
    */
   clone() {
-    return new Template(this.#originalDoc, this.dynamicPartToGetterMap);
+    return new Template(this.#originalDoc, this.#dynamicPartToGetterMap);
   }
 
   cloneIfInUse() {
@@ -121,16 +124,16 @@ export class Template {
     if (!this.sameAs(other)) {
       return;
     }
-    this.dynamicPartToGetterMap = other.dynamicPartToGetterMap;
+    this.#dynamicPartToGetterMap = other.dynamicPartToGetterMap;
   }
 
   triggerRender(dynamicPartSpecifier: string = '') {
     if (dynamicPartSpecifier) {
-      const fixer = this.dynamicPartToFixerMap.get(dynamicPartSpecifier);
+      const fixer = this.#dynamicPartToFixerMap.get(dynamicPartSpecifier);
       fixer && fixer();
       return;
     }
-    this.dynamicPartToFixerMap.forEach(fixer => fixer());
+    this.#dynamicPartToFixerMap.forEach(fixer => fixer());
   }
 
   #parseTemplate(doc: DocumentFragment) {
@@ -178,6 +181,13 @@ export class Template {
     } else if (name === 'ref') {
       this.#parseRef(attribute);
       return;
+    } else if (name.startsWith(tplPrefix) && name.endsWith(tplSuffix)) {
+      // Custom directive
+      const directive = this.#dynamicPartToGetterMap.get(name);
+      if (isFuncInterpolator(directive)) {
+        directive(attribute.ownerElement);
+      }
+      return;
     }
 
     const pattern = attribute.value;
@@ -191,7 +201,7 @@ export class Template {
         pattern,
         oldValue: null,
       };
-      this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#attributeFixer.bind(null, fixerArgs));
+      this.#dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#attributeFixer.bind(null, fixerArgs));
       m = bindingRE.exec(pattern);
     }
   }
@@ -204,7 +214,7 @@ export class Template {
     oldValue: unknown,
   }) => {
     const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
-    const getter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
+    const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
       // TODO: add dev only error
       return;
@@ -232,7 +242,7 @@ export class Template {
     }
     const eventName = name.slice(1);
     const dynamicPartSpecifier = m[0];
-    const handler = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
+    const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
       // TODO: add dev only error
       return;
@@ -254,7 +264,7 @@ export class Template {
       return;
     }
     const dynamicPartSpecifier = m[0];
-    const refSetter = this.dynamicPartToGetterMap.get(dynamicPartSpecifier);
+    const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(refSetter)) {
       // TODO: add dev only error
       return;
@@ -276,7 +286,7 @@ export class Template {
       return;
     }
     const dynamicPartSpecifier = m[0];
-    if (!this.dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
+    if (!this.#dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
       // TODO: add dev only error
     }
     /**
@@ -325,7 +335,7 @@ export class Template {
       oldValue: null,
     };
 
-    this.dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#textFixer.bind(null, fixerArgs));
+    this.#dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#textFixer.bind(null, fixerArgs));
   }
 
   #textFixer = (fixerArgs: {
@@ -334,7 +344,7 @@ export class Template {
     anchorNode: Comment,
     oldValue: unknown,
   }) => {
-    const dynamicInterpolator = this.dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
+    const dynamicInterpolator = this.#dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
     const value = isFuncInterpolator(dynamicInterpolator)
       ? this.#runGetter(dynamicInterpolator, fixerArgs.dynamicPartSpecifier)
       : dynamicInterpolator;
@@ -448,7 +458,7 @@ export function html(
     { raw: strings },
     ...values.map(value => {
       if (isDynamicInterpolator(value)) {
-        const dynamicPartPlaceholder = `${tplPrefix}Dynamic${dynamicPartId++}${tplSuffix}`;
+        const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
         if (isDomRef(value)) {
           dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
           return `ref=${dynamicPartPlaceholder}`;

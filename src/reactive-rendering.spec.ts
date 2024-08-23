@@ -124,7 +124,7 @@ describe('Reactive rendering', () => {
       `;
     }
 
-    const template = renderTree(treeData.value);
+    const template = html`${() => renderTree(treeData.value)}`;
     /**
      * The tree DOM structure should look like this:
      * <div>

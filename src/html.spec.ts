@@ -17,15 +17,15 @@ describe('The html function', () => {
     const funcInterpolator = () => 1;
     const templateA = html`<div>This is static ${staticVar} ${funcInterpolator} </div>`;
     expect(templateA.dynamicPartToGetterMap.size).to.equal(1);
-    expect(templateA.dynamicPartToGetterMap.has('$$--Dynamic0--$$')).to.be.true;
-    expect(templateA.dynamicPartToGetterMap.get('$$--Dynamic0--$$')).to.equal(funcInterpolator);
+    expect(templateA.dynamicPartToGetterMap.has('$$--dynamic0--$$')).to.be.true;
+    expect(templateA.dynamicPartToGetterMap.get('$$--dynamic0--$$')).to.equal(funcInterpolator);
 
     const template = html`<div>This is static ${staticVar} ${funcInterpolator} ${templateA}</div>`;
     expect(template.dynamicPartToGetterMap.size).to.equal(2);
-    expect(template.dynamicPartToGetterMap.has('$$--Dynamic0--$$')).to.be.true;
-    expect(template.dynamicPartToGetterMap.get('$$--Dynamic0--$$')).to.equal(funcInterpolator);
-    expect(template.dynamicPartToGetterMap.has('$$--Dynamic1--$$')).to.be.true;
-    expect(template.dynamicPartToGetterMap.get('$$--Dynamic1--$$')).to.equal(templateA);
+    expect(template.dynamicPartToGetterMap.has('$$--dynamic0--$$')).to.be.true;
+    expect(template.dynamicPartToGetterMap.get('$$--dynamic0--$$')).to.equal(funcInterpolator);
+    expect(template.dynamicPartToGetterMap.has('$$--dynamic1--$$')).to.be.true;
+    expect(template.dynamicPartToGetterMap.get('$$--dynamic1--$$')).to.equal(templateA);
   });
 
   it('two templates with the same static pattern should be considered as the same', () => {
@@ -48,8 +48,8 @@ describe('The html function', () => {
     const templateB = html`<div>This is static 1 ${100}, ${funcInterpolatorB}</div>`;
     expect(templateA.originalDoc).to.equal(templateB.originalDoc);
     expect(templateA.doc).to.not.equal(templateB.doc);
-    expect(templateA.dynamicPartToGetterMap.get('$$--Dynamic0--$$')).to.equal(funcInterpolatorA);
-    expect(templateB.dynamicPartToGetterMap.get('$$--Dynamic0--$$')).to.equal(funcInterpolatorB);
+    expect(templateA.dynamicPartToGetterMap.get('$$--dynamic0--$$')).to.equal(funcInterpolatorA);
+    expect(templateB.dynamicPartToGetterMap.get('$$--dynamic0--$$')).to.equal(funcInterpolatorB);
   });
 
   it('cloned templates should share the same dynamicPartToGetterMap', () => {
@@ -321,5 +321,13 @@ describe('The html function', () => {
     expect(template.doc.querySelectorAll('li').length).to.equal(2);
     expect(template.doc.querySelectorAll('li')[0].textContent).to.equal('Price: 100');
     expect(template.doc.querySelectorAll('li')[1].textContent).to.equal('Price: 200');
+  });
+
+  it('custom directive', () => {
+    const myDir = fake();
+    const template = html`<div ${myDir}>text</div>`;
+    template.doc; // Since template is lazy parsed, we need to access its .doc property to trigger the parsing and rendering
+    expect(myDir.calledOnce).to.be.true;
+    expect(myDir.firstCall.args[0]).to.be.instanceOf(HTMLDivElement);
   });
 });
