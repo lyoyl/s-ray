@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { html } from './html.js';
-import { ref } from './reactive.js';
+import { Deref, ref } from './reactive.js';
 
 describe('Reactive rendering', () => {
   it('render a template with a primitive reactive value', () => {
@@ -96,8 +96,7 @@ describe('Reactive rendering', () => {
   });
 
   it('recursive rendering', () => {
-    // TODO
-    const tree = ref({
+    const treeData = ref({
       value: 0,
       children: [
         {
@@ -116,8 +115,47 @@ describe('Reactive rendering', () => {
       ],
     });
 
-    const treeItemTemplate = html`
-      <div></div>
-    `;
+    function renderTree(tree: typeof treeData.value) {
+      return html`
+        <div>
+          <span>${() => tree.value}</span>
+          ${() => tree.children.map(child => renderTree(child))}
+        </div>
+      `;
+    }
+
+    const template = renderTree(treeData.value);
+    /**
+     * The tree DOM structure should look like this:
+     * <div>
+     *   <span>0</span>
+     *   <div>
+     *     <span>1</span>
+     *     <div>
+     *       <span>3</span>
+     *     </div>
+     *   </div>
+     *   <div>
+     *     <span>2</span>
+     *   </div>
+     * </div>
+     */
+    expect(template.doc.children.length).to.equal(1);
+    const div1 = template.doc.children[0];
+    expect(div1.children.length).to.equal(3);
+    const span0 = div1.children[0];
+    expect(span0.textContent).to.equal('0');
+    const div2 = div1.children[1];
+    expect(div2.children.length).to.equal(2);
+    const span1 = div2.children[0];
+    expect(span1.textContent).to.equal('1');
+    const div3 = div2.children[1];
+    expect(div3.children.length).to.equal(1);
+    const span2 = div3.children[0];
+    expect(span2.textContent).to.equal('3');
+    const div4 = div1.children[2];
+    expect(div4.children.length).to.equal(1);
+    const span3 = div4.children[0];
+    expect(span3.textContent).to.equal('2');
   });
 });

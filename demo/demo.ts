@@ -1,29 +1,33 @@
 import { html, ref } from '../src/index.js';
 
-const counter = ref(0);
+const treeData = ref({
+  value: 0,
+  children: [
+    {
+      value: 1,
+      children: [
+        {
+          value: 3,
+          children: [],
+        },
+      ],
+    },
+    {
+      value: 2,
+      children: [],
+    },
+  ],
+});
 
-counter.value = 100;
-
-function handleClick(e: MouseEvent) {
-  counter.value += 1;
-  e.stopPropagation();
+function renderTree(tree: typeof treeData.value) {
+  return html`
+    <div>
+      <span>${() => tree.value}</span>
+      ${() => tree.children.map(child => renderTree(child))}
+    </div>
+  `;
 }
 
-const templateA = html`
-  <button @click=${handleClick}>Cournter: <span>${() => counter.value}~</span>! ${() => counter.value}~</span>! ${() =>
-  counter.value}~</span>!</button>
-`;
-
-const toggle = ref(true);
-
-function handleToggle() {
-  toggle.value = !toggle.value;
-}
-
-const template = html`
-  <div style="border: 10px solid red;" @click="${handleToggle}">
-    ${() => toggle.value ? templateA : html`<div>Toggle is off</div>`}
-  </div>
-`;
+const template = renderTree(treeData.value);
 
 document.body.appendChild(template.doc);
