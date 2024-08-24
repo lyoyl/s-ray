@@ -14,10 +14,18 @@ export function domRef<T extends Element>(): DomRef<T>;
 // @public (undocumented)
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
 
+// Warning: (ae-forgotten-export) The symbol "TemplateKey" needs to be exported by the entry point index.d.ts
+//
+// @public (undocumented)
+export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
+
 // Warning: (ae-forgotten-export) The symbol "Ref" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
 export function ref<T = unknown>(value: T): Ref<T>;
+
+// @public (undocumented)
+export const unsafeHtml: (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
 // (No @packageDocumentation comment for this package)
 

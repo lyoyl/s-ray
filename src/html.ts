@@ -12,6 +12,8 @@ type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 type Fixer = (...args: any[]) => void;
 
+type TemplateKey = string | number;
+
 function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
   return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value);
 }
@@ -50,6 +52,14 @@ export class Template {
   // Keep track of the root nodes of the template's document fragment,
   // so that we can retrieve them.
   #rootNodes: Node[] = [];
+
+  /**
+   * The key is used to identify if two templates are the same during diff algorithm.
+   */
+  #key: TemplateKey | null = null;
+  setKey(key: TemplateKey) {
+    this.#key = key;
+  }
 
   /**
    * When true, it means the template is currently in use, the this.doc will be an empty fragment,
@@ -451,10 +461,31 @@ export class Template {
 
 const templateCache = new Map<string, DocumentFragment>();
 
+const safeHtml = createTemplateFunction(false);
+const safeHtmlWithKey = (stringsOrKey: TemplateKey, strings: TemplateStringsArray, ...values: unknown[]) => {
+  const template = safeHtml(strings, ...values);
+  template.setKey(stringsOrKey);
+  return template;
+};
+
 /**
  * @public
  */
-export const html = createTemplateFunction(false);
+export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
+/**
+ * @public
+ */
+export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
+export function html(
+  stringsOrKey: TemplateStringsArray | TemplateKey,
+  ...values: unknown[]
+) {
+  const firstArgType = typeof stringsOrKey;
+  const isKeyed = firstArgType === 'string' || firstArgType === 'number';
+  return isKeyed
+    ? safeHtmlWithKey.bind(null, stringsOrKey as TemplateKey)
+    : safeHtml(stringsOrKey as TemplateStringsArray, ...values);
+}
 
 /**
  * @public
