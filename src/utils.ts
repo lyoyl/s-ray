@@ -13,3 +13,14 @@ export function isArray(value: any): value is any[] {
 export function error(message: string) {
   throw new Error(message);
 }
+
+const escapeMap = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&apos;',
+};
+export function sanitizeHtml(htmlString: string) {
+  return htmlString.replace(/[&<>"']/g, (match) => escapeMap[match as keyof typeof escapeMap]);
+}

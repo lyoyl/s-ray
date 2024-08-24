@@ -1,6 +1,7 @@
 import { DomRef, isDomRef } from './domRef.js';
 import { setCurrentDynamicPartSpecifier, setCurrentTemplate } from './reactive.js';
-import { createComment, createTextNode, error, isArray } from './utils.js';
+import { trustedTypePolicy } from './trustedType.js';
+import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
@@ -453,35 +454,44 @@ const templateCache = new Map<string, DocumentFragment>();
 /**
  * @public
  */
-export function html(
-  strings: TemplateStringsArray,
-  ...values: unknown[]
-): Template {
-  let dynamicPartId = 0;
-  const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
-  const templateString = String.raw(
-    { raw: strings },
-    ...values.map(value => {
-      if (isDynamicInterpolator(value)) {
-        const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
-        if (isDomRef(value)) {
-          dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
-          return `ref=${dynamicPartPlaceholder}`;
+export const html = createTemplateFunction(false);
+
+/**
+ * @public
+ */
+export const unsafeHtml = createTemplateFunction(true);
+
+function createTemplateFunction(isUnsafe: boolean) {
+  return (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Template => {
+    let dynamicPartId = 0;
+    const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
+    const templateString = String.raw(
+      { raw: strings },
+      ...values.map(value => {
+        if (isDynamicInterpolator(value)) {
+          const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
+          if (isDomRef(value)) {
+            dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
+            return `ref=${dynamicPartPlaceholder}`;
+          }
+          dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
+          return dynamicPartPlaceholder;
         }
-        dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
-        return dynamicPartPlaceholder;
-      }
-      return value;
-    }),
-  );
-  if (templateCache.has(templateString)) {
-    const cachedOriginalDoc = templateCache.get(templateString)!;
-    // We need to update the dynamic parts
-    return new Template(cachedOriginalDoc, dynamicPartToGetterMap);
-  }
-  const template = document.createElement('template');
-  template.innerHTML = templateString;
-  const tpl = new Template(template.content, dynamicPartToGetterMap);
-  templateCache.set(templateString, tpl.originalDoc);
-  return tpl;
+        return isUnsafe ? String(value) : sanitizeHtml(String(value));
+      }),
+    );
+    if (templateCache.has(templateString)) {
+      const cachedOriginalDoc = templateCache.get(templateString)!;
+      // We need to update the dynamic parts
+      return new Template(cachedOriginalDoc, dynamicPartToGetterMap);
+    }
+    const template = document.createElement('template');
+    template.innerHTML = trustedTypePolicy.createHTML(templateString);
+    const tpl = new Template(template.content, dynamicPartToGetterMap);
+    templateCache.set(templateString, tpl.originalDoc);
+    return tpl;
+  };
 }

@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { fake } from 'sinon';
 import { domRef } from './domRef.js';
-import { html } from './html.js';
+import { html, unsafeHtml } from './html.js';
 
 describe('The html function', () => {
   it('html`` should be lazy parsed', () => {
@@ -329,5 +329,15 @@ describe('The html function', () => {
     template.doc; // Since template is lazy parsed, we need to access its .doc property to trigger the parsing and rendering
     expect(myDir.calledOnce).to.be.true;
     expect(myDir.firstCall.args[0]).to.be.instanceOf(HTMLDivElement);
+  });
+
+  it('should sanitize static parts', () => {
+    const template = html`<div>${'<script>alert(1)</script>'}</div>`;
+    expect(template.doc.querySelector('div')!.textContent).to.equal('<script>alert(1)</script>');
+  });
+
+  it('should not sanitize unsafe HTML', () => {
+    const unsafe = unsafeHtml`<div>${'<h1>title</h1>'}</div>`;
+    expect(unsafe.doc.querySelector('h1')!.textContent).to.equal('title');
   });
 });
