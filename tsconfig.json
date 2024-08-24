@@ -22,7 +22,8 @@
   "include": [
     "./src/**/*",
     "./demo/**/*",
-    "./test/**/*"
+    "./test/**/*",
+    "./shim.d.ts"
   ],
   "exclude": [
     "./node_modules"

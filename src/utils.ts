@@ -9,3 +9,7 @@ export function createComment(text: string) {
 export function isArray(value: any): value is any[] {
   return Array.isArray(value);
 }
+
+export function error(message: string) {
+  throw new Error(message);
+}

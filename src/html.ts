@@ -1,6 +1,6 @@
 import { DomRef, isDomRef } from './domRef.js';
 import { setCurrentDynamicPartSpecifier, setCurrentTemplate } from './reactive.js';
-import { createComment, createTextNode, isArray } from './utils.js';
+import { createComment, createTextNode, error, isArray } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
@@ -216,7 +216,9 @@ export class Template {
     const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
-      // TODO: add dev only error
+      if (__DEV__ === 'development') {
+        error(`You must provide a function as the attribute value interpolator, but you provided: ${getter}`);
+      }
       return;
     }
 
