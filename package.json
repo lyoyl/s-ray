@@ -3,16 +3,15 @@
   "type": "module",
   "version": "0.1.0",
   "description": "A user interface library powered by web components tech",
-  "main": "dist/index.js",
+  "main": "dist/s-ray.js",
   "types": "dist/s-ray.d.ts",
   "files": [
-    "dist/index.js",
+    "dist/s-ray.js",
     "dist/s-ray.d.ts",
     "package.json"
   ],
   "scripts": {
-    "build": "npm run esbuild && npm run tsc && npm run dts",
-    "esbuild": "esbuild src/index.ts --bundle --minify --sourcemap --target=esnext --format=esm --outfile=dist/index.js",
+    "build": "node ./scripts/build.js && npm run tsc && npm run dts",
     "tsc": "tsc",
     "dts": "api-extractor run --local --verbose",
     "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",

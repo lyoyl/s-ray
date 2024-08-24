@@ -12,11 +12,12 @@
   "json": {},
   "markdown": {},
   "excludes": [
-    "**/node_modules",
-    "**/*-lock.json",
-    "**/*mojom-webui.d.ts",
-    "**/test_results",
-    "**/dist"
+    "node_modules",
+    "*-lock.json",
+    "dist",
+    "coverage",
+    "temp",
+    "api-reports"
   ],
   "plugins": [
     "https://plugins.dprint.dev/typescript-0.88.7.wasm",
