@@ -7,11 +7,20 @@ export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
 
-type FunctionInterpolator = (...args: any[]) => unknown;
-type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
+/**
+ * @public
+ */
+export type FunctionInterpolator = (...args: any[]) => unknown;
+/**
+ * @public
+ */
+export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 type Fixer = (...args: any[]) => void;
 
+/**
+ * @public
+ */
 type TemplateKey = string | number;
 
 function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
@@ -26,6 +35,9 @@ function isTemplate(value: unknown): value is Template {
   return value instanceof Template;
 }
 
+/**
+ * @public
+ */
 export class Template {
   // The templates with same pattern should share the same DocumentFragment,
   // it is unparsed.
@@ -159,6 +171,11 @@ export class Template {
   mountTo(parentTemplate: Template, anchorNode: Node | null): void;
   mountTo(parent: Node): void;
   mountTo(parent: Node | Template, anchorNode: Node | null = null) {
+    if (this.isParsed) {
+      // When mounting, we only need to trigger a re-rendering if the template is already parsed,
+      // because if the template is not parsed, it will be parsed and rendered when its .doc property is accessed.
+      this.triggerRender();
+    }
     if (parent instanceof Template) {
       if (__DEV__ && this.isInUse) {
         error(
@@ -422,7 +439,13 @@ export class Template {
       ? this.#runGetter(dynamicInterpolator, fixerArgs.dynamicPartSpecifier)
       : dynamicInterpolator;
 
-    if (fixerArgs.oldValue === value) {
+    const isNotInUsedTemplate = isTemplate(value) && !value.isInUse;
+    if (
+      fixerArgs.oldValue === value &&
+      // Old value and the new value is the same template, but the template is not in use,
+      // which means the template was unmounted before and now we need to mount it.
+      !isNotInUsedTemplate
+    ) {
       // No need to update
       return;
     }

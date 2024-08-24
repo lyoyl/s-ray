@@ -9,8 +9,11 @@
 // @public (undocumented)
 export function domRef<T extends Element>(): DomRef<T>;
 
-// Warning: (ae-forgotten-export) The symbol "Template" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "FunctionInterpolator" needs to be exported by the entry point index.d.ts
 //
+// @public (undocumented)
+export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
+
 // @public (undocumented)
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
 
@@ -19,10 +22,48 @@ export function html(strings: TemplateStringsArray, ...values: unknown[]): Templ
 // @public (undocumented)
 export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
-// Warning: (ae-forgotten-export) The symbol "Ref" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export class Ref<T = unknown> {
+    constructor(value: T);
+    // (undocumented)
+    get value(): T;
+    set value(newValue: T);
+}
+
 // @public (undocumented)
 export function ref<T = unknown>(value: T): Ref<T>;
+
+// @public (undocumented)
+export class Template {
+    constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>);
+    // (undocumented)
+    adoptGettersFrom(other: Template): void;
+    // (undocumented)
+    get children(): Set<Template>;
+    clone(): Template;
+    // (undocumented)
+    cloneIfInUse(): Template;
+    // (undocumented)
+    get doc(): DocumentFragment;
+    // (undocumented)
+    get dynamicPartToGetterMap(): Map<string, DynamicInterpolators>;
+    get isInUse(): boolean;
+    // (undocumented)
+    get isParsed(): boolean;
+    mountTo(parentTemplate: Template, anchorNode: Node | null): void;
+    // (undocumented)
+    mountTo(parent: Node): void;
+    // (undocumented)
+    get originalDoc(): DocumentFragment;
+    // (undocumented)
+    get parent(): Template | null;
+    sameAs(other: Template): boolean;
+    // (undocumented)
+    setKey(key: TemplateKey): void;
+    // (undocumented)
+    triggerRender(dynamicPartSpecifier?: string): void;
+    unmount(): void;
+}
 
 // @public (undocumented)
 export const unsafeHtml: (strings: TemplateStringsArray, ...values: unknown[]) => Template;

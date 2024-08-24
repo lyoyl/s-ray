@@ -13,6 +13,9 @@ export function setCurrentDynamicPartSpecifier(specifier: string | null) {
 type DynamicSpecifiers = Set<string>;
 type Deps = Map<Template, DynamicSpecifiers>;
 
+/**
+ * @public
+ */
 export class Ref<T = unknown> {
   #value: T;
   #deps: Deps = new Map();

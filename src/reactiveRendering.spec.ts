@@ -158,4 +158,46 @@ describe('Reactive rendering', () => {
     const span3 = div4.children[0];
     expect(span3.textContent).to.equal('2');
   });
+
+  it('should work with parent-child relationship', () => {
+    const toggle = ref(true);
+    const templateA = html`<span>Template A</span>`;
+    const templateB = html`<p>${templateA}</p>`;
+    const template = html`<div>${() => toggle.value ? templateB : ''}</div>`;
+
+    // before mounting
+    expect(templateA.isInUse).to.be.false;
+    expect(templateB.isInUse).to.be.false;
+    expect(templateB.children.size).to.equal(0);
+    expect(template.isInUse).to.be.false;
+    expect(template.children.size).to.equal(0);
+
+    template.mountTo(document.createElement('div'));
+    // after mounting
+    expect(templateA.isInUse).to.be.true;
+    expect(templateB.isInUse).to.be.true;
+    expect(templateB.children.size).to.equal(1);
+    expect(templateB.children.has(templateA)).to.be.true;
+    expect(template.isInUse).to.be.true;
+    expect(template.children.size).to.equal(1);
+    expect(template.children.has(templateB)).to.be.true;
+
+    toggle.value = false;
+    // TemplateB and TemplateA should be unmounted
+    expect(templateA.isInUse).to.be.false;
+    expect(templateB.isInUse).to.be.false;
+    expect(templateB.children.size).to.equal(0);
+    expect(template.isInUse).to.be.true;
+    expect(template.children.size).to.equal(0);
+
+    toggle.value = true;
+    // TemplateB and TemplateA should be mounted again
+    expect(templateA.isInUse).to.be.true;
+    expect(templateB.isInUse).to.be.true;
+    expect(templateB.children.size).to.equal(1);
+    expect(templateB.children.has(templateA)).to.be.true;
+    expect(template.isInUse).to.be.true;
+    expect(template.children.size).to.equal(1);
+    expect(template.children.has(templateB)).to.be.true;
+  });
 });

@@ -388,8 +388,4 @@ describe('The html function', () => {
     const unsafe = unsafeHtml`<div>${'<h1>title</h1>'}</div>`;
     expect(unsafe.doc.querySelector('h1')!.textContent).to.equal('title');
   });
-
-  it('should not sanitize unsafe HTML', () => {
-    // const template = html(key)`<div></div>`
-  });
 });
