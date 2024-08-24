@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "description": "A user interface library powered by web components tech",
-  "main": "dist/s-ray.js",
+  "main": "dist/s-ray.min.js",
   "module": "dist/s-ray-bundler.js",
   "types": "dist/s-ray.d.ts",
   "exports": {
@@ -11,7 +11,7 @@
       "types": "./dist/s-ray.d.ts",
       "module": "./dist/s-ray-bundler.js",
       "import": "./dist/s-ray-bundler.js",
-      "require": "./dist/s-ray.js"
+      "require": "./dist/s-ray.min.js"
     }
   },
   "files": [
@@ -19,6 +19,8 @@
     "dist/s-ray.js.map",
     "dist/s-ray.min.js",
     "dist/s-ray.min.js.map",
+    "dist/s-ray-bundler.js",
+    "dist/s-ray-bundler.js.map",
     "dist/s-ray.d.ts",
     "package.json"
   ],
