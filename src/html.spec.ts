@@ -3,6 +3,10 @@ import { fake } from 'sinon';
 import { domRef } from './domRef.js';
 import { html, unsafeHtml } from './html.js';
 
+beforeEach(() => {
+  document.body.innerHTML = '';
+});
+
 describe('The html function', () => {
   it('html`` should be lazy parsed', () => {
     const template = html`<div>${() => 1}</div>`;
@@ -10,6 +14,50 @@ describe('The html function', () => {
     // the template will be parsed and initialized when its .doc property is accessed
     expect(template.doc).to.be.instanceOf(DocumentFragment);
     expect(template.isParsed).to.be.true;
+  });
+
+  it('should work as expected with parent-child relationship', () => {
+    const child1 = html`<a></a>`;
+    const child2 = html`<h1>${child1}</h1>`;
+    const root = html`<div>${child2}</div>`;
+
+    // before mounting
+    expect(root.isInUse).to.be.false;
+    expect(child1.isInUse).to.be.false;
+    expect(child2.isInUse).to.be.false;
+    expect(root.children.size).to.equal(0);
+    expect(root.parent).to.be.null;
+    expect(child2.children.size).to.equal(0);
+    expect(child2.parent).to.be.null;
+    expect(child1.children.size).to.equal(0);
+    expect(child1.parent).to.be.null;
+
+    root.mountTo(document.body);
+
+    // after mounting
+    expect(root.isInUse).to.be.true;
+    expect(child1.isInUse).to.be.true;
+    expect(child2.isInUse).to.be.true;
+    expect(root.children.size).to.equal(1);
+    expect(root.children.has(child2)).to.be.true;
+    expect(root.parent).to.be.null; // Since it is a root template
+    expect(child2.children.size).to.equal(1);
+    expect(child2.children.has(child1)).to.be.true;
+    expect(child2.parent).to.equal(root);
+    expect(child1.children.size).to.equal(0);
+    expect(child1.parent).to.equal(child2);
+    expect(document.body.innerHTML).to.equal('<div><h1><a></a><!--anchor--></h1><!--anchor--></div>');
+
+    // unmount child2, which should also unmount child1
+    child2.unmount();
+    expect(root.children.size).to.equal(0);
+    expect(child2.isInUse).to.be.false;
+    expect(child2.parent).to.be.null;
+    expect(child2.children.size).to.equal(0);
+    expect(child1.isInUse).to.be.false;
+    expect(child1.parent).to.be.null;
+    expect(child1.children.size).to.equal(0);
+    expect(document.body.innerHTML).to.equal('<div><!--anchor--></div>'); // TODO: why this anchor is not removed?
   });
 
   it('should collect dynamic parts', () => {
@@ -150,19 +198,19 @@ describe('The html function', () => {
     expect(template.doc.querySelector('div')!.textContent).to.equal('1');
   });
 
-  it('template retrieving', () => {
+  it('template unmount', () => {
     const template = html`<div></div>`;
     expect(template.isInUse).to.be.false;
 
     const div1 = template.doc.querySelector('div');
     expect(template.isInUse).to.be.false;
 
-    document.body.append(template.doc);
+    template.mountTo(document.body);
     expect(template.isInUse).to.be.true;
     expect(document.body.querySelector('div')).to.equal(div1);
     expect(template.doc.querySelector('div')).to.be.null;
 
-    template.retrieve();
+    template.unmount();
     expect(template.isInUse).to.be.false;
     expect(document.body.querySelector('div')).to.be.null;
     expect(template.doc.querySelector('div')).to.equal(div1);
@@ -171,7 +219,7 @@ describe('The html function', () => {
   it('event binding', () => {
     const handler = fake();
     const template = html`<button @click=${handler}></button>`;
-    document.body.append(template.doc);
+    template.mountTo(document.body);
 
     document.body.querySelector('button')!.click();
     expect(handler.calledOnce).to.be.true;

@@ -12,7 +12,7 @@ export const baseConfig = {
       ),
       target: 'auto',
       define: {
-        'process.env.NODE_ENV': JSON.stringify('test'),
+        '__DEV__': JSON.stringify('true'),
       },
     }),
   ],

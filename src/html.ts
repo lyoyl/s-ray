@@ -50,7 +50,7 @@ export class Template {
   }
 
   // Keep track of the root nodes of the template's document fragment,
-  // so that we can retrieve them.
+  // so that we can unmount them.
   #rootNodes: Node[] = [];
 
   /**
@@ -59,6 +59,28 @@ export class Template {
   #key: TemplateKey | null = null;
   setKey(key: TemplateKey) {
     this.#key = key;
+  }
+
+  /**
+   * The children templates of the current template.
+   * const templateA = html`<div>${() => 1}</div>`;
+   * const templateB = html`<div>${templateA} -- ${templateA}</div>`;
+   * templateB.children will be [templateA]
+   */
+  #children: Set<Template> = new Set();
+  get children() {
+    return this.#children;
+  }
+
+  /**
+   * The parent template of the current template.
+   * const templateA = html`<div>${() => 1}</div>`;
+   * const templateB = html`<div>${templateA} -- ${templateA}</div>`;
+   * templateA.parent will be templateB, it will be null if the template is not used in another template.
+   */
+  #parent: Template | null = null;
+  get parent() {
+    return this.#parent;
   }
 
   /**
@@ -111,15 +133,48 @@ export class Template {
   }
 
   /**
+   * @public
    * A Template keeps track of its root nodes of its document fragment,
    * if the nodes of its document fragment are appended to the active DOM tree or
-   * another Template, we can make a call to retrieve() to get the nodes back.
+   * another Template, we can make a call to unmount() to get the nodes back.
    */
-  retrieve() {
+  unmount() {
     if (!this.isInUse) {
       return;
     }
     this.#rootNodes.forEach(node => this.#doc!.appendChild(node));
+    // If a template is unmounted, we should trigger all its children templates to be unmounted.
+    this.#children.forEach(child => child.unmount());
+    if (this.#parent) {
+      this.#parent.#children.delete(this);
+      this.#parent = null;
+    }
+  }
+
+  /**
+   * @public
+   * Mount the template to a parent template with the given anchor node,
+   * or mount to a DOM node directly as a root template.
+   */
+  mountTo(parentTemplate: Template, anchorNode: Node | null): void;
+  mountTo(parent: Node): void;
+  mountTo(parent: Node | Template, anchorNode: Node | null = null) {
+    if (parent instanceof Template) {
+      if (__DEV__ && this.isInUse) {
+        error(
+          `The parent template is already in use, you should unmount it first if you want to mount it to another parent template, parent template is:`,
+          parent,
+        );
+        return;
+      }
+      this.#parent = parent;
+      parent.#children.add(this);
+      anchorNode!.parentNode!.insertBefore(this.doc!, anchorNode);
+    } else {
+      parent.appendChild(this.doc!);
+      // This is a root template
+      this.#parent = null;
+    }
   }
 
   /**
@@ -378,12 +433,12 @@ export class Template {
 
     if (isArray(previous) && !isArray(current)) {
       // Unmount the old dynamic node
-      previous.forEach(tpl => tpl.retrieve());
+      previous.forEach(tpl => tpl.unmount());
 
       // Mount the new dynamic node
       if (isTemplate(current)) {
         fixerArgs.dynamicNode = current.cloneIfInUse();
-        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
+        fixerArgs.dynamicNode.mountTo(this, fixerArgs.anchorNode);
       } else {
         fixerArgs.dynamicNode = createTextNode(String(current));
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
@@ -391,7 +446,7 @@ export class Template {
     } else if (!isArray(previous) && isArray(current)) {
       // Unmount the old dynamic node
       if (isTemplate(previous)) {
-        previous.retrieve();
+        previous.unmount();
       } else {
         previous.remove();
       }
@@ -402,13 +457,13 @@ export class Template {
       }
       // Mount the new dynamic node
       (current as Template[]).forEach(tpl => {
-        fixerArgs.anchorNode.parentNode!.insertBefore(tpl.doc, fixerArgs.anchorNode);
+        tpl.mountTo(this, fixerArgs.anchorNode);
       });
       fixerArgs.dynamicNode = current;
     } else if (!isArray(previous) && !isArray(current)) {
       // Unmount the old dynamic node
       if (isTemplate(previous)) {
-        previous.retrieve();
+        previous.unmount();
       } else {
         previous.remove();
       }
@@ -416,7 +471,7 @@ export class Template {
       // Mount the new dynamic node
       if (isTemplate(current)) {
         fixerArgs.dynamicNode = current.cloneIfInUse();
-        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode.doc, fixerArgs.anchorNode);
+        fixerArgs.dynamicNode.mountTo(this, fixerArgs.anchorNode);
       } else {
         fixerArgs.dynamicNode = createTextNode(String(current));
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
@@ -436,21 +491,21 @@ export class Template {
           oldTpl.adoptGettersFrom(newTpl);
           oldTpl.triggerRender();
         } else {
-          oldTpl.retrieve();
+          oldTpl.unmount();
           oldList[idx] = newTpl.cloneIfInUse();
-          fixerArgs.anchorNode.parentNode!.insertBefore(oldList[idx].doc, fixerArgs.anchorNode);
+          oldList[idx].mountTo(this, fixerArgs.anchorNode);
         }
         idx++;
       }
 
       if (oldLen > newLen) {
-        oldList.slice(idx).forEach(tpl => tpl.retrieve());
+        oldList.slice(idx).forEach(tpl => tpl.unmount());
         oldList.splice(idx);
       } else if (oldLen < newLen) {
         newList.slice(idx).forEach(tpl => {
           const newTpl = tpl.cloneIfInUse();
           oldList.push(newTpl);
-          fixerArgs.anchorNode.parentNode!.insertBefore(newTpl.doc, fixerArgs.anchorNode);
+          newTpl.mountTo(this, fixerArgs.anchorNode);
         });
       }
 
