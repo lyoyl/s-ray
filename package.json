@@ -4,14 +4,17 @@
   "version": "0.1.0",
   "description": "A user interface library powered by web components tech",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/s-ray.d.ts",
   "files": [
-    "dist"
+    "dist/index.js",
+    "dist/s-ray.d.ts",
+    "package.json"
   ],
   "scripts": {
-    "build": "npm run esbuild && npm run tsc",
+    "build": "npm run esbuild && npm run tsc && npm run dts",
     "esbuild": "esbuild src/index.ts --bundle --minify --sourcemap --target=esnext --format=esm --outfile=dist/index.js",
     "tsc": "tsc",
+    "dts": "api-extractor run --local --verbose",
     "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
@@ -19,6 +22,7 @@
   },
   "devDependencies": {
     "@esm-bundle/chai": "4.3.4-fix.0",
+    "@microsoft/api-extractor": "^7.47.7",
     "@types/mocha": "^10.0.7",
     "@types/node": "^22.4.0",
     "@types/sinon": "^17.0.3",

@@ -9,6 +9,7 @@
     "sourceMap": true,
     "incremental": true,
     "declaration": true,
+    "declarationMap": true,
     "declarationDir": "dist",
     "emitDeclarationOnly": true,
     "experimentalDecorators": true,

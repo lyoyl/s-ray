@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { html } from './html.js';
-import { Deref, ref } from './reactive.js';
+import { ref } from './reactive.js';
 
 describe('Reactive rendering', () => {
   it('render a template with a primitive reactive value', () => {

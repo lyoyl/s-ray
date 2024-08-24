@@ -42,6 +42,9 @@ export class Ref<T = unknown> {
   }
 }
 
+/**
+ * @public
+ */
 export function ref<T = unknown>(value: T) {
   return new Ref<T>(value);
 }

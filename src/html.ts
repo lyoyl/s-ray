@@ -448,6 +448,9 @@ export class Template {
 
 const templateCache = new Map<string, DocumentFragment>();
 
+/**
+ * @public
+ */
 export function html(
   strings: TemplateStringsArray,
   ...values: unknown[]
