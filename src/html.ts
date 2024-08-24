@@ -228,7 +228,7 @@ export class Template {
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
       if (__DEV__ === 'development') {
-        error(`You must provide a function as the attribute value interpolator, but you provided: ${getter}`);
+        error(`You must provide a function as the attribute value interpolator, but you provided:`, getter);
       }
       return;
     }
@@ -247,17 +247,21 @@ export class Template {
     bindingRE.lastIndex = 0;
 
     const name = attribute.name;
+    const eventName = name.slice(1);
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      // TODO: throw error
+      if (__DEV__ === 'development') {
+        error(`Failed to parse the event binding, event name is ${eventName}, DOM node is: `, attribute.ownerElement);
+      }
       return;
     }
-    const eventName = name.slice(1);
     const dynamicPartSpecifier = m[0];
     const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
-      // TODO: add dev only error
+      if (__DEV__ === 'development') {
+        error(`You must provide a function as the event handler, but you provided:`, handler);
+      }
       return;
     }
     attribute.ownerElement?.addEventListener(eventName, e => handler(e));
@@ -273,13 +277,13 @@ export class Template {
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      // TODO: throw error
+      __DEV__ && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
       return;
     }
     const dynamicPartSpecifier = m[0];
     const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(refSetter)) {
-      // TODO: add dev only error
+      __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
       return;
     }
     refSetter(attribute.ownerElement);
@@ -300,7 +304,7 @@ export class Template {
     }
     const dynamicPartSpecifier = m[0];
     if (!this.#dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
-      // TODO: add dev only error
+      __DEV__ && error(`There is no corresponding getter for the dynamic part specifier:`, dynamicPartSpecifier);
     }
     /**
      * split the text into two parts based on the dynamic part specifier:
@@ -311,10 +315,11 @@ export class Template {
      */
     const texts = content.split(dynamicPartSpecifier);
     if (texts.length !== 2) {
-      // TODO: add dev only error, the texts array should exactly have 2 elements
+      __DEV__ && error(`Failed to split the text into two parts:`, content);
+      return;
     }
 
-    const anchorNode = createComment('anchor' /* TODO: add debug info in dev mode */);
+    const anchorNode = createComment(__DEV__ ? 'anchor' : '');
     let nodesToBeRendered: Node[] = [];
     let dynamicNode: Text | Template | Template[] = createTextNode('');
     let remainingTextNode: Text | null = null;
@@ -391,8 +396,11 @@ export class Template {
         previous.remove();
       }
 
+      if (__DEV__ && current.some(item => !isTemplate(item))) {
+        error(`For list rendering, you must provide an array of templates, but you provided:`, current);
+        return;
+      }
       // Mount the new dynamic node
-      // TODO: add dev only check to make sure the current is a template array
       (current as Template[]).forEach(tpl => {
         fixerArgs.anchorNode.parentNode!.insertBefore(tpl.doc, fixerArgs.anchorNode);
       });
@@ -414,6 +422,7 @@ export class Template {
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
       }
     } else {
+      // TODO: using keyed diff algorithm instead
       const oldList = previous as Template[];
       const newList = current as Template[];
       const oldLen = oldList.length;
