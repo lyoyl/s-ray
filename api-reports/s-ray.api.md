@@ -44,12 +44,10 @@ export class Template {
     // (undocumented)
     cloneIfInUse(): Template;
     // (undocumented)
-    get doc(): DocumentFragment;
-    // (undocumented)
     get dynamicPartToGetterMap(): Map<string, DynamicInterpolators>;
-    get isInUse(): boolean;
     // (undocumented)
-    get isParsed(): boolean;
+    get isInitialized(): boolean;
+    get isInUse(): boolean;
     mountTo(parentTemplate: Template, anchorNode: Node | null): void;
     // (undocumented)
     mountTo(parent: Node): void;
@@ -60,9 +58,9 @@ export class Template {
     sameAs(other: Template): boolean;
     // (undocumented)
     setKey(key: TemplateKey): void;
-    // (undocumented)
-    triggerRender(dynamicPartSpecifier?: string): void;
     unmount(): void;
+    // (undocumented)
+    update(dynamicPartSpecifier?: string): void;
 }
 
 // @public (undocumented)

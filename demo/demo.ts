@@ -30,4 +30,4 @@ function renderTree(tree: typeof treeData.value) {
 
 const template = renderTree(treeData.value);
 
-document.body.appendChild(template.doc);
+template.mountTo(document.body);

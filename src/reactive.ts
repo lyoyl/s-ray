@@ -39,7 +39,7 @@ export class Ref<T = unknown> {
     this.#value = newValue;
     for (const [template, dynamicSpecifiers] of this.#deps) {
       dynamicSpecifiers.forEach(specifier => {
-        template.triggerRender(specifier);
+        template.update(specifier);
       });
     }
   }

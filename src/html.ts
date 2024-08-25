@@ -49,16 +49,8 @@ export class Template {
   // This is cloned from originalDoc and will be used to render the template,
   // it will be parsed by template parser.
   #doc: DocumentFragment | null = null;
-  // Which means that html`` is lazy, it will only be initialized when it is used, i.e. its publick doc property is accessed.
-  // So make a call to html`` is cheap.
-  get doc() {
-    if (!this.#doc) {
-      this.#init();
-    }
-    return this.#doc!;
-  }
-  get isParsed() {
-    return this.#doc !== null;
+  get isInitialized() {
+    return !!this.#doc;
   }
 
   // Keep track of the root nodes of the template's document fragment,
@@ -108,7 +100,13 @@ export class Template {
   get dynamicPartToGetterMap() {
     return this.#dynamicPartToGetterMap;
   }
-  #dynamicPartToFixerMap: Map<string, Fixer> = new Map();
+
+  // The fixers that are needed to be called during mounting stage.
+  #dpToMountingFixerMap: Map<string, Fixer> = new Map();
+  // The fixers that are needed to be called during updating stage.
+  #dpToUpdatingFixerMap: Map<string, Fixer> = new Map();
+  // The fixers that are needed to be called during unmounting stage.
+  #dpToUnmountingFixerMap: Map<string, Fixer> = new Map();
 
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
     this.#originalDoc = originalDoc;
@@ -116,10 +114,12 @@ export class Template {
   }
 
   #init() {
+    if (this.isInitialized) {
+      return;
+    }
     this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
     this.#rootNodes = Array.from(this.#doc.childNodes);
     this.#parseTemplate(this.#doc);
-    this.triggerRender();
   }
 
   /**
@@ -161,6 +161,7 @@ export class Template {
       this.#parent.#children.delete(this);
       this.#parent = null;
     }
+    this.#dpToUnmountingFixerMap.forEach(fixer => fixer());
   }
 
   /**
@@ -171,11 +172,9 @@ export class Template {
   mountTo(parentTemplate: Template, anchorNode: Node | null): void;
   mountTo(parent: Node): void;
   mountTo(parent: Node | Template, anchorNode: Node | null = null) {
-    if (this.isParsed) {
-      // When mounting, we only need to trigger a re-rendering if the template is already parsed,
-      // because if the template is not parsed, it will be parsed and rendered when its .doc property is accessed.
-      this.triggerRender();
-    }
+    // The template is lazy initialized, and will only be initialized once when it is mounted.
+    this.#init();
+    this.#dpToMountingFixerMap.forEach(fixer => fixer());
     if (parent instanceof Template) {
       if (__DEV__ && this.isInUse) {
         error(
@@ -186,12 +185,24 @@ export class Template {
       }
       this.#parent = parent;
       parent.#children.add(this);
-      anchorNode!.parentNode!.insertBefore(this.doc!, anchorNode);
+      anchorNode!.parentNode!.insertBefore(this.#doc!, anchorNode);
     } else {
-      parent.appendChild(this.doc!);
+      parent.appendChild(this.#doc!);
       // This is a root template
       this.#parent = null;
     }
+  }
+
+  /**
+   * @public
+   */
+  update(dynamicPartSpecifier: string = '') {
+    if (dynamicPartSpecifier) {
+      const fixer = this.#dpToUpdatingFixerMap.get(dynamicPartSpecifier);
+      fixer && fixer();
+      return;
+    }
+    this.#dpToUpdatingFixerMap.forEach(fixer => fixer());
   }
 
   /**
@@ -208,15 +219,6 @@ export class Template {
       return;
     }
     this.#dynamicPartToGetterMap = other.dynamicPartToGetterMap;
-  }
-
-  triggerRender(dynamicPartSpecifier: string = '') {
-    if (dynamicPartSpecifier) {
-      const fixer = this.#dynamicPartToFixerMap.get(dynamicPartSpecifier);
-      fixer && fixer();
-      return;
-    }
-    this.#dynamicPartToFixerMap.forEach(fixer => fixer());
   }
 
   #parseTemplate(doc: DocumentFragment) {
@@ -284,7 +286,9 @@ export class Template {
         pattern,
         oldValue: null,
       };
-      this.#dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#attributeFixer.bind(null, fixerArgs));
+      const attrFixer = this.#attributeFixer.bind(null, fixerArgs);
+      this.#dpToMountingFixerMap.set(dynamicPartSpecifier, attrFixer);
+      this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, attrFixer);
       m = bindingRE.exec(pattern);
     }
   }
@@ -328,20 +332,46 @@ export class Template {
       }
       return;
     }
+
+    const ownerElement = attribute.ownerElement!;
+    // remove the attribute
+    attribute.ownerElement?.removeAttribute(name);
     const dynamicPartSpecifier = m[0];
+
+    const eventFixer = this.#eventFixer.bind(null, ownerElement, dynamicPartSpecifier, eventName);
+    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, eventFixer);
+    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, eventFixer); // event needs to be updated
+
+    this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
+      const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+      if (!isFuncInterpolator(handler)) {
+        if (__DEV__ === 'development') {
+          error(
+            `Field to remove event listener, you must provide a function as the event handler, but you provided:`,
+            handler,
+          );
+        }
+        return;
+      }
+      ownerElement?.removeEventListener(eventName, handler);
+    });
+  }
+
+  #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, eventName: string) => {
     const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
       if (__DEV__ === 'development') {
-        error(`You must provide a function as the event handler, but you provided:`, handler);
+        error(
+          `Field to add event listener, you must provide a function as the event handler, but you provided:`,
+          handler,
+        );
       }
       return;
     }
-    attribute.ownerElement?.addEventListener(eventName, e => handler(e));
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(name);
-
-    // TODO: need cleanup mechanism
-  }
+    // Remove the old event listener if any
+    ownerElement?.removeEventListener(eventName, handler);
+    ownerElement?.addEventListener(eventName, handler);
+  };
 
   #parseRef(attribute: Attr) {
     bindingRE.lastIndex = 0;
@@ -352,17 +382,29 @@ export class Template {
       __DEV__ && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
       return;
     }
-    const dynamicPartSpecifier = m[0];
-    const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
-    if (!isFuncInterpolator(refSetter)) {
-      __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
-      return;
-    }
-    refSetter(attribute.ownerElement);
-    // TODO: need cleanup mechanism, and dev mode warning
 
+    const ownerElement = attribute.ownerElement;
     // remove the attribute
     attribute.ownerElement?.removeAttribute(attribute.name);
+
+    const dynamicPartSpecifier = m[0];
+    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, () => {
+      const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+      if (!isFuncInterpolator(refSetter)) {
+        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        return;
+      }
+      refSetter(ownerElement);
+    });
+
+    this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
+      const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+      if (!isFuncInterpolator(refSetter)) {
+        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        return;
+      }
+      refSetter(null);
+    });
   }
 
   #parseText(text: Text) {
@@ -425,7 +467,9 @@ export class Template {
       oldValue: null,
     };
 
-    this.#dynamicPartToFixerMap.set(dynamicPartSpecifier, this.#textFixer.bind(null, fixerArgs));
+    const textFixer = this.#textFixer.bind(null, fixerArgs);
+    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, textFixer);
+    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, textFixer);
   }
 
   #textFixer = (fixerArgs: {
@@ -512,7 +556,7 @@ export class Template {
         const newTpl = newList[idx];
         if (oldTpl.sameAs(newTpl)) {
           oldTpl.adoptGettersFrom(newTpl);
-          oldTpl.triggerRender();
+          oldTpl.update();
         } else {
           oldTpl.unmount();
           oldList[idx] = newTpl.cloneIfInUse();

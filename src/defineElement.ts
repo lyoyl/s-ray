@@ -31,7 +31,7 @@ class SRayElement extends HTMLElement {
   connectedCallback() {
     setCurrentInstance(this);
     const setupResult = this.options.setup();
-    this.shadowRoot!.append(setupResult.template.doc);
+    setupResult.template.mountTo(this.shadowRoot!);
     recoverCurrentInstance();
   }
 }
