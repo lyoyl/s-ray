@@ -268,10 +268,27 @@ export class Template {
       return;
     } else if (name.startsWith(tplPrefix) && name.endsWith(tplSuffix)) {
       // Custom directive
-      const directive = this.#dynamicPartToGetterMap.get(name);
-      if (isFuncInterpolator(directive)) {
-        directive(attribute.ownerElement);
-      }
+      const ownerElement = attribute.ownerElement!;
+      // remove the attribute
+      ownerElement.removeAttribute(name);
+
+      this.#dpToMountingFixerMap.set(name, () => {
+        const directive = this.#dynamicPartToGetterMap.get(name);
+        if (!isFuncInterpolator(directive)) {
+          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          return;
+        }
+        directive(ownerElement);
+      });
+
+      this.#dpToUnmountingFixerMap.set(name, () => {
+        const directive = this.#dynamicPartToGetterMap.get(name);
+        if (!isFuncInterpolator(directive)) {
+          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          return;
+        }
+        directive(null);
+      });
       return;
     }
 

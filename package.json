@@ -28,7 +28,7 @@
     "build": "node ./scripts/build.js && npm run tsc && npm run dts",
     "tsc": "tsc",
     "dts": "api-extractor run --local --verbose",
-    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo",
+    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__DEV__=true",
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
     "format": "dprint fmt --config ./dprint.json"

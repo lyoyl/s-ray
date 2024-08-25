@@ -411,6 +411,10 @@ describe('The html function', () => {
     template.mountTo(container);
     expect(myDir.calledOnce).to.be.true;
     expect(myDir.firstCall.args[0]).to.be.instanceOf(HTMLDivElement);
+    myDir.resetHistory();
+    template.unmount();
+    expect(myDir.calledOnce).to.be.true;
+    expect(myDir.firstCall.args[0]).to.be.null;
   });
 
   it('should sanitize static parts', () => {
