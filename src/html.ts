@@ -1,5 +1,5 @@
 import { DomRef, isDomRef } from './domRef.js';
-import { setCurrentDynamicPartSpecifier, setCurrentTemplate } from './reactive.js';
+import { setCurrentSpecifier, setCurrentTarget } from './reactive.js';
 import { trustedTypePolicy } from './trustedType.js';
 import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
@@ -598,11 +598,11 @@ export class Template {
   };
 
   #runGetter(getter: FunctionInterpolator, dynamicPartSpecifier: string) {
-    setCurrentTemplate(this);
-    setCurrentDynamicPartSpecifier(dynamicPartSpecifier);
+    setCurrentTarget(this);
+    setCurrentSpecifier(dynamicPartSpecifier);
     const value = getter();
-    setCurrentDynamicPartSpecifier(null);
-    setCurrentTemplate(null);
+    setCurrentSpecifier(null);
+    setCurrentTarget(null);
     return value;
   }
 }

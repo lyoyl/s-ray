@@ -1,33 +1,18 @@
-import { html, ref } from '../src/index.js';
+import { html, ref, watch } from '../src/index.js';
 
-const treeData = ref({
-  value: 0,
-  children: [
-    {
-      value: 1,
-      children: [
-        {
-          value: 3,
-          children: [],
-        },
-      ],
-    },
-    {
-      value: 2,
-      children: [],
-    },
-  ],
+const count = ref(0);
+
+watch(() => count.value * 2, val => {
+  console.log('count * 2:', val);
 });
 
-function renderTree(tree: typeof treeData.value) {
-  return html`
-    <div>
-      <span>${() => tree.value}</span>
-      ${() => tree.children.map(child => renderTree(child))}
-    </div>
-  `;
-}
+watch(count, val => {
+  console.log('count:', val);
+});
 
-const template = renderTree(treeData.value);
+const template = html`
+  <button @click=${() => count.value++}>Increment</button>
+  <p>Count: ${() => count.value}</p>
+`;
 
 template.mountTo(document.body);

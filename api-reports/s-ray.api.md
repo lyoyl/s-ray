@@ -66,6 +66,12 @@ export class Template {
 // @public (undocumented)
 export const unsafeHtml: (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
+// @public (undocumented)
+export function watch<T extends Ref<any>, V = T extends Ref<infer R> ? R : never>(ref: T, callback: (val: V) => void): void;
+
+// @public (undocumented)
+export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Getter>>(getter: Getter, callback: (value: R) => void): void;
+
 // (No @packageDocumentation comment for this package)
 
 ```
