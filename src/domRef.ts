@@ -1,5 +1,9 @@
-export class DomRef<T extends Element = Element> {
-  value: T | null = null;
+import { Ref } from './reactive.js';
+
+export class DomRef<T extends Element = Element> extends Ref<T | null> {
+  constructor() {
+    super(null);
+  }
 }
 
 export function domRef<T extends Element>(): DomRef<T> {

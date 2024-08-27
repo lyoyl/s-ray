@@ -1,6 +1,9 @@
 import { expect } from '@esm-bundle/chai';
+import { fake } from 'sinon';
+
+import { domRef } from './domRef.js';
 import { html } from './html.js';
-import { ref } from './reactive.js';
+import { ref, watch } from './reactive.js';
 
 describe('Reactive rendering', () => {
   it('render a template with a primitive reactive value', () => {
@@ -22,6 +25,22 @@ describe('Reactive rendering', () => {
     expect(container.querySelector('div')!.getAttribute('data-value')).to.equal('0');
     counter.value = 100;
     expect(container.querySelector('div')!.getAttribute('data-value')).to.equal('100');
+  });
+
+  it('domeRef should be working as expected', () => {
+    const h1Ref = domRef();
+    const cb = fake();
+    watch(h1Ref, cb);
+
+    const template = html`<h1 ${h1Ref}></h1>`;
+    const container = document.createElement('div');
+    template.mountTo(container);
+
+    const h1 = container.querySelector('h1');
+    expect(h1).to.be.instanceOf(HTMLHeadingElement);
+    expect(cb.callCount).to.equal(2);
+    expect(cb.firstCall.args[0]).to.equal(null);
+    expect(cb.secondCall.args[0]).to.equal(h1);
   });
 
   it('conditional rendering - between 2 templates', () => {
