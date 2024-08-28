@@ -12,17 +12,35 @@ describe('Reactive', () => {
     const cb2 = fake();
     watch(() => count.value * 2, cb2);
 
-    expect(cb1.callCount).to.equal(1);
-    expect(cb1.firstCall.args[0]).to.equal(0);
-    expect(cb2.callCount).to.equal(1);
-    expect(cb2.firstCall.args[0]).to.equal(0);
-    cb1.resetHistory();
-    cb2.resetHistory();
+    expect(cb1.callCount).to.equal(0);
+    expect(cb2.callCount).to.equal(0);
 
     count.value = 1;
     expect(cb1.callCount).to.equal(1);
     expect(cb1.firstCall.args[0]).to.equal(1);
+    expect(cb1.firstCall.args[1]).to.equal(0);
     expect(cb2.callCount).to.equal(1);
     expect(cb2.firstCall.args[0]).to.equal(2);
+    expect(cb2.firstCall.args[1]).to.equal(0);
+  });
+
+  it('unwatch', () => {
+    const count = ref(0);
+
+    const cb = fake();
+    const unwatch = watch(count, cb);
+
+    expect(cb.callCount).to.equal(0);
+
+    count.value = 1;
+    expect(cb.callCount).to.equal(1);
+    expect(cb.firstCall.args[0]).to.equal(1);
+    expect(cb.firstCall.args[1]).to.equal(0);
+    cb.resetHistory();
+
+    unwatch();
+
+    count.value = 2;
+    expect(cb.callCount).to.equal(0);
   });
 });

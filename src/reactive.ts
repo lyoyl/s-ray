@@ -73,20 +73,34 @@ let uniqueSpecifierId = 0;
 /**
  * @public
  */
+export type UnwatchFn = () => void;
+
+/**
+ * @public
+ */
+export type WatchCallback<V> = (oldValue: V | null, newValue: V) => void;
+
+/**
+ * @public
+ */
 export function watch<
   T extends Ref<any>,
   V = T extends Ref<infer R> ? R : never,
->(ref: T, callback: (val: V) => void): void;
+>(ref: T, callback: WatchCallback<V>): UnwatchFn;
 /**
  * @public
  */
 export function watch<
   Getter extends (...args: any[]) => any,
   R = ReturnType<Getter>,
->(getter: Getter, callback: (value: R) => void): void;
+>(getter: Getter, callback: WatchCallback<R>): UnwatchFn;
+
 export function watch(getterOrRef: any, callback: any) {
   const isRef = getterOrRef instanceof Ref;
   const getter = isRef ? () => getterOrRef.value : getterOrRef;
+  let isFirstRun = true;
+  let oldValue: unknown = null;
+
   const target: Target = {
     update(specifier: string) {
       setCurrentTarget(target);
@@ -94,10 +108,17 @@ export function watch(getterOrRef: any, callback: any) {
       const value = getter();
       setCurrentTarget(null);
       setCurrentSpecifier(null);
-      callback(value);
+      !isFirstRun && callback(value, oldValue);
+      oldValue = value;
+      isFirstRun = false;
     },
     isInUse: true,
   };
   const specifier = `_watcher_${uniqueSpecifierId++}_`;
   target.update(specifier);
+
+  function unwatch() {
+    target.isInUse = false;
+  }
+  return unwatch;
 }

@@ -38,9 +38,9 @@ describe('Reactive rendering', () => {
 
     const h1 = container.querySelector('h1');
     expect(h1).to.be.instanceOf(HTMLHeadingElement);
-    expect(cb.callCount).to.equal(2);
-    expect(cb.firstCall.args[0]).to.equal(null);
-    expect(cb.secondCall.args[0]).to.equal(h1);
+    expect(cb.callCount).to.equal(1);
+    expect(cb.firstCall.args[0]).to.equal(h1);
+    expect(cb.firstCall.args[1]).to.equal(null);
   });
 
   it('conditional rendering - between 2 templates', () => {
