@@ -23,6 +23,9 @@ export function html(strings: TemplateStringsArray, ...values: unknown[]): Templ
 export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
 // @public (undocumented)
+export type OnInvalidateFn = (cb: CallableFunction) => void;
+
+// @public (undocumented)
 export class Ref<T = unknown> {
     constructor(value: T);
     // (undocumented)
@@ -76,7 +79,7 @@ export function watch<T extends Ref<any>, V = T extends Ref<infer R> ? R : never
 export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Getter>>(getter: Getter, callback: WatchCallback<R>): UnwatchFn;
 
 // @public (undocumented)
-export type WatchCallback<V> = (oldValue: V | null, newValue: V) => void;
+export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
 
 // (No @packageDocumentation comment for this package)
 

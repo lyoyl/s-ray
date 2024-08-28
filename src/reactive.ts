@@ -78,7 +78,12 @@ export type UnwatchFn = () => void;
 /**
  * @public
  */
-export type WatchCallback<V> = (oldValue: V | null, newValue: V) => void;
+export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
+
+/**
+ * @public
+ */
+export type OnInvalidateFn = (cb: CallableFunction) => void;
 
 /**
  * @public
@@ -100,6 +105,10 @@ export function watch(getterOrRef: any, callback: any) {
   const getter = isRef ? () => getterOrRef.value : getterOrRef;
   let isFirstRun = true;
   let oldValue: unknown = null;
+  let invalidateFn: CallableFunction | null = null;
+  function onInvalidate(cb: CallableFunction) {
+    invalidateFn = cb;
+  }
 
   const target: Target = {
     update(specifier: string) {
@@ -108,7 +117,10 @@ export function watch(getterOrRef: any, callback: any) {
       const value = getter();
       setCurrentTarget(null);
       setCurrentSpecifier(null);
-      !isFirstRun && callback(value, oldValue);
+      if (invalidateFn) {
+        invalidateFn();
+      }
+      !isFirstRun && callback(value, oldValue, onInvalidate);
       oldValue = value;
       isFirstRun = false;
     },
