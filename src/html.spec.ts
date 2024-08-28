@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { fake } from 'sinon';
 import { domRef } from './domRef.js';
 import { html, unsafeHtml } from './html.js';
+import { nextTick } from './scheduler.js';
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -76,7 +77,7 @@ describe('The html function', () => {
     expect(template.dynamicPartToGetterMap.get('$$--dynamic1--$$')).to.equal(templateA);
   });
 
-  it('two templates with the same static pattern should be considered as the same', () => {
+  it('two templates with the same static pattern should be considered as the same', async () => {
     const templateA = html`<h1>${() => 1}</h1>`;
     const templateB = html`<h1>${() => 2}</h1>`;
 
@@ -87,6 +88,7 @@ describe('The html function', () => {
     const templateC = html`<h1>${html`<span>123</span>`}</h1>`;
     templateA.adoptGettersFrom(templateC);
     templateA.update();
+    await nextTick();
     expect(document.body.querySelector('h1')?.outerHTML).to.equal('<h1><span>123</span><!--anchor--></h1>');
   });
 
@@ -189,7 +191,7 @@ describe('The html function', () => {
     );
   });
 
-  it('render templates conditionally', () => {
+  it('render templates conditionally', async () => {
     const tplA = html`<p>1</p>`;
     const tplB = html`<p>2</p>`;
     let condition = true;
@@ -200,14 +202,16 @@ describe('The html function', () => {
 
     condition = false;
     template.update();
+    await nextTick();
     expect(container1.querySelector('div')!.textContent).to.equal('2');
 
     condition = true;
     template.update();
+    await nextTick();
     expect(container1.querySelector('div')!.textContent).to.equal('1');
   });
 
-  it('conditional rendering with a template and a non-template value', () => {
+  it('conditional rendering with a template and a non-template value', async () => {
     const tplA = html`<p>1</p>`;
     const staticValue = 'hello world';
     let condition = true;
@@ -218,10 +222,12 @@ describe('The html function', () => {
 
     condition = false;
     template.update();
+    await nextTick();
     expect(container1.querySelector('div')!.textContent).to.equal(staticValue);
 
     condition = true;
     template.update();
+    await nextTick();
     expect(container1.querySelector('div')!.textContent).to.equal('1');
   });
 
@@ -251,7 +257,7 @@ describe('The html function', () => {
     expect(handler.firstCall.args[0]).to.be.instanceOf(MouseEvent);
   });
 
-  it('List rendering', () => {
+  it('List rendering', async () => {
     let data = [
       { id: 1, name: 'Alice' },
       { id: 2, name: 'Bob' },
@@ -280,6 +286,7 @@ describe('The html function', () => {
       { id: 4, name: 'David' },
     ];
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(4);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Charlie');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Alice');
@@ -287,7 +294,7 @@ describe('The html function', () => {
     expect(container.querySelectorAll('li')[3].textContent).to.equal('David');
   });
 
-  it('List rendering with conditional rendering', () => {
+  it('List rendering with conditional rendering', async () => {
     let data = [
       { id: 1, name: 'Alice' },
       { id: 2, name: 'Bob' },
@@ -310,6 +317,7 @@ describe('The html function', () => {
 
     isLoading = false;
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(3);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Alice');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Bob');
@@ -317,11 +325,12 @@ describe('The html function', () => {
 
     isLoading = true;
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(1);
     expect(container.querySelector('li')!.textContent).to.equal('Loading...');
   });
 
-  it('List rendering with different length of children', () => {
+  it('List rendering with different length of children', async () => {
     let data = [
       { id: 1, name: 'Alice' },
       { id: 2, name: 'Bob' },
@@ -349,6 +358,7 @@ describe('The html function', () => {
       { id: 2, name: 'Bob' },
     ];
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(2);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Alice');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Bob');
@@ -360,13 +370,14 @@ describe('The html function', () => {
       { id: 2, name: 'Bob' },
     ];
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(3);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Charlie');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Alice');
     expect(container.querySelectorAll('li')[2].textContent).to.equal('Bob');
   });
 
-  it('List rendering with different list items', () => {
+  it('List rendering with different list items', async () => {
     let dataA = [
       { id: 1, name: 'Alice' },
       { id: 2, name: 'Bob' },
@@ -399,6 +410,7 @@ describe('The html function', () => {
 
     toggle = false;
     template.update();
+    await nextTick();
     expect(container.querySelectorAll('li').length).to.equal(2);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Price: 100');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Price: 200');

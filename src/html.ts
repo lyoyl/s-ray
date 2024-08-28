@@ -1,5 +1,6 @@
 import { DomRef, isDomRef } from './domRef.js';
 import { setCurrentSpecifier, setCurrentTarget } from './reactive.js';
+import { queueTask } from './scheduler.js';
 import { trustedTypePolicy } from './trustedType.js';
 import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
@@ -199,10 +200,10 @@ export class Template {
   update(dynamicPartSpecifier: string = '') {
     if (dynamicPartSpecifier) {
       const fixer = this.#dpToUpdatingFixerMap.get(dynamicPartSpecifier);
-      fixer && fixer();
+      fixer && queueTask(fixer);
       return;
     }
-    this.#dpToUpdatingFixerMap.forEach(fixer => fixer());
+    this.#dpToUpdatingFixerMap.forEach(fixer => queueTask(fixer));
   }
 
   /**

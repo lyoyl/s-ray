@@ -23,7 +23,25 @@ export function html(strings: TemplateStringsArray, ...values: unknown[]): Templ
 export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
 // @public (undocumented)
+export function nextTick(): Promise<void>;
+
+// @public (undocumented)
 export type OnInvalidateFn = (cb: CallableFunction) => void;
+
+// @public (undocumented)
+export enum Priority {
+    // (undocumented)
+    High = "high",
+    // (undocumented)
+    Immediate = "immediate",
+    // (undocumented)
+    Low = "low",
+    // (undocumented)
+    Middle = "middle"
+}
+
+// @public (undocumented)
+export function queueTask(task: CallableFunction, priority?: Priority): void;
 
 // @public (undocumented)
 export class Ref<T = unknown> {

@@ -4,9 +4,10 @@ import { fake } from 'sinon';
 import { domRef } from './domRef.js';
 import { html } from './html.js';
 import { ref, watch } from './reactive.js';
+import { nextTick } from './scheduler.js';
 
 describe('Reactive rendering', () => {
-  it('render a template with a primitive reactive value', () => {
+  it('render a template with a primitive reactive value', async () => {
     const counter = ref(0);
     const template = html`<div>${() => counter.value}</div>`;
 
@@ -14,20 +15,22 @@ describe('Reactive rendering', () => {
     template.mountTo(container);
     expect(container.querySelector('div')!.textContent).to.equal('0');
     counter.value = 100;
+    await nextTick();
     expect(container.querySelector('div')!.textContent).to.equal('100');
   });
 
-  it('attrbute reactive rendering', () => {
+  it('attrbute reactive rendering', async () => {
     const counter = ref(0);
     const template = html`<div data-value="${() => counter.value}"></div>`;
     const container = document.createElement('div');
     template.mountTo(container);
     expect(container.querySelector('div')!.getAttribute('data-value')).to.equal('0');
     counter.value = 100;
+    await nextTick();
     expect(container.querySelector('div')!.getAttribute('data-value')).to.equal('100');
   });
 
-  it('domeRef should be working as expected', () => {
+  it('domeRef should be working as expected', async () => {
     const h1Ref = domRef();
     const cb = fake();
     watch(h1Ref, cb);
@@ -35,6 +38,7 @@ describe('Reactive rendering', () => {
     const template = html`<h1 ${h1Ref}></h1>`;
     const container = document.createElement('div');
     template.mountTo(container);
+    await nextTick();
 
     const h1 = container.querySelector('h1');
     expect(h1).to.be.instanceOf(HTMLHeadingElement);
@@ -43,7 +47,7 @@ describe('Reactive rendering', () => {
     expect(cb.firstCall.args[1]).to.equal(null);
   });
 
-  it('conditional rendering - between 2 templates', () => {
+  it('conditional rendering - between 2 templates', async () => {
     const toggle = ref(true);
     const templateA = html`<p>Template A</p>`;
     const templateB = html`<p>Template B</p>`;
@@ -52,12 +56,14 @@ describe('Reactive rendering', () => {
     template.mountTo(container);
     expect(container.querySelector('div')!.textContent).to.equal('Template A');
     toggle.value = false;
+    await nextTick();
     expect(container.querySelector('div')!.textContent).to.equal('Template B');
     toggle.value = true;
+    await nextTick();
     expect(container.querySelector('div')!.textContent).to.equal('Template A');
   });
 
-  it('conditional rendering - between template and primitive value', () => {
+  it('conditional rendering - between template and primitive value', async () => {
     const toggle = ref(true);
     const templateA = html`<p>Template A</p>`;
     const template = html`<div>${() => toggle.value ? templateA : 'Primitive'}</div>`;
@@ -65,12 +71,14 @@ describe('Reactive rendering', () => {
     template.mountTo(container);
     expect(container.querySelector('div')!.textContent).to.equal('Template A');
     toggle.value = false;
+    await nextTick();
     expect(container.querySelector('div')!.textContent).to.equal('Primitive');
     toggle.value = true;
+    await nextTick();
     expect(container.querySelector('div')!.textContent).to.equal('Template A');
   });
 
-  it('a reactive value used by multiple templates', () => {
+  it('a reactive value used by multiple templates', async () => {
     const counter = ref(0);
     const templateA = html`<div>${() => counter.value} - ${() => counter.value}</div>`;
     const templateB = html`<div>${() => counter.value} - ${() => counter.value}</div>`;
@@ -82,11 +90,12 @@ describe('Reactive rendering', () => {
     expect(containerA.querySelector('div')!.textContent).to.equal('0 - 0');
     expect(containerB.querySelector('div')!.textContent).to.equal('0 - 0');
     counter.value = 100;
+    await nextTick();
     expect(containerA.querySelector('div')!.textContent).to.equal('100 - 100');
     expect(containerB.querySelector('div')!.textContent).to.equal('100 - 100');
   });
 
-  it('list rendering', () => {
+  it('list rendering', async () => {
     const items = ref(['a', 'b']);
     const template = html`
       <ul>
@@ -99,13 +108,14 @@ describe('Reactive rendering', () => {
     expect(container.querySelectorAll('li')[0].textContent).to.equal('a');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('b');
     items.value = ['c', 'b', 'd'];
+    await nextTick();
     expect(container.querySelectorAll('li')).to.have.length(3);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('c');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('b');
     expect(container.querySelectorAll('li')[2].textContent).to.equal('d');
   });
 
-  it('list rendering with conditional rendering', () => {
+  it('list rendering with conditional rendering', async () => {
     const items = ref(['aa', 'b', 'cc', 'd']);
     const template = html`
       <ul>
@@ -124,6 +134,7 @@ describe('Reactive rendering', () => {
     expect(container.querySelectorAll('li')[3].textContent).to.equal('Odd');
 
     items.value = ['aaa', 'b', 'cc', 'd', 'ee'];
+    await nextTick();
     expect(container.querySelectorAll('li')).to.have.length(5);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Odd');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Odd');
@@ -198,7 +209,7 @@ describe('Reactive rendering', () => {
     expect(span3.textContent).to.equal('2');
   });
 
-  it('should work with parent-child relationship', () => {
+  it('should work with parent-child relationship', async () => {
     const toggle = ref(true);
     const templateA = html`<span>Template A</span>`;
     const templateB = html`<p>${templateA}</p>`;
@@ -222,6 +233,7 @@ describe('Reactive rendering', () => {
     expect(template.children.has(templateB)).to.be.true;
 
     toggle.value = false;
+    await nextTick();
     // TemplateB and TemplateA should be unmounted
     expect(templateA.isInUse).to.be.false;
     expect(templateB.isInUse).to.be.false;
@@ -230,6 +242,7 @@ describe('Reactive rendering', () => {
     expect(template.children.size).to.equal(0);
 
     toggle.value = true;
+    await nextTick();
     // TemplateB and TemplateA should be mounted again
     expect(templateA.isInUse).to.be.true;
     expect(templateB.isInUse).to.be.true;
@@ -238,5 +251,22 @@ describe('Reactive rendering', () => {
     expect(template.isInUse).to.be.true;
     expect(template.children.size).to.equal(1);
     expect(template.children.has(templateB)).to.be.true;
+  });
+
+  it('Watch callback is executed after the DOM is updated', async () => {
+    const counter = ref(0);
+    const template = html`<div>${() => counter.value}</div>`;
+    const container = document.createElement('div');
+    template.mountTo(container);
+
+    const cb = fake();
+    watch(() => counter.value, async () => {
+      expect(container.querySelector('div')!.textContent).to.equal('100');
+      cb();
+    });
+
+    counter.value = 100;
+    await nextTick();
+    expect(cb.callCount).to.equal(1);
   });
 });

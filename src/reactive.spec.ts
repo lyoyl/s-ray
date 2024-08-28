@@ -2,9 +2,10 @@ import { expect } from '@esm-bundle/chai';
 import { fake, useFakeTimers } from 'sinon';
 
 import { ref, watch } from './reactive.js';
+import { nextTick } from './scheduler.js';
 
 describe('Reactive', () => {
-  it('watch a ref and a getter', () => {
+  it('watch a ref and a getter', async () => {
     const count = ref(0);
 
     const cb1 = fake();
@@ -16,6 +17,7 @@ describe('Reactive', () => {
     expect(cb2.callCount).to.equal(0);
 
     count.value = 1;
+    await nextTick();
     expect(cb1.callCount).to.equal(1);
     expect(cb1.firstCall.args[0]).to.equal(1);
     expect(cb1.firstCall.args[1]).to.equal(0);
@@ -24,7 +26,7 @@ describe('Reactive', () => {
     expect(cb2.firstCall.args[1]).to.equal(0);
   });
 
-  it('unwatch', () => {
+  it('unwatch', async () => {
     const count = ref(0);
 
     const cb = fake();
@@ -33,6 +35,7 @@ describe('Reactive', () => {
     expect(cb.callCount).to.equal(0);
 
     count.value = 1;
+    await nextTick();
     expect(cb.callCount).to.equal(1);
     expect(cb.firstCall.args[0]).to.equal(1);
     expect(cb.firstCall.args[1]).to.equal(0);
@@ -42,6 +45,23 @@ describe('Reactive', () => {
 
     count.value = 2;
     expect(cb.callCount).to.equal(0);
+  });
+
+  it('modify a ref multiple times should only trigger the watcher once', async () => {
+    const count = ref(0);
+
+    const cb = fake();
+    watch(count, cb);
+
+    expect(cb.callCount).to.equal(0);
+
+    count.value = 1;
+    count.value = 2;
+    count.value = 3;
+    await nextTick();
+    expect(cb.callCount).to.equal(1);
+    expect(cb.firstCall.args[0]).to.equal(3);
+    expect(cb.firstCall.args[1]).to.equal(0);
   });
 
   it('A watch run can be invalidated', async () => {
@@ -66,15 +86,14 @@ describe('Reactive', () => {
     expect(cb.callCount).to.equal(0);
 
     count.value = 1;
-    clock.tick(30);
     count.value = 2;
-    clock.tick(30);
     count.value = 3;
+    await nextTick();
     clock.tick(1000);
     await Promise.resolve();
     expect(cb.callCount).to.equal(1);
     expect(cb.firstCall.args[0]).to.equal(6);
-    expect(cb.firstCall.args[1]).to.equal(4);
+    expect(cb.firstCall.args[1]).to.equal(0);
 
     clock.restore();
   });

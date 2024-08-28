@@ -1,3 +1,5 @@
+import { Priority, queueTask } from './scheduler.js';
+
 export let currentTarget: Target | null = null;
 export function setCurrentTarget(target: Target | null) {
   currentTarget = target;
@@ -110,24 +112,29 @@ export function watch(getterOrRef: any, callback: any) {
     invalidateFn = cb;
   }
 
+  const specifier = `_watcher_${uniqueSpecifierId++}_`;
+  const taskRunner = () => {
+    setCurrentTarget(target);
+    setCurrentSpecifier(specifier);
+    const value = getter();
+    setCurrentTarget(null);
+    setCurrentSpecifier(null);
+    if (invalidateFn) {
+      invalidateFn();
+    }
+
+    !isFirstRun && callback(value, oldValue, onInvalidate);
+    oldValue = value;
+    isFirstRun = false;
+  };
+
   const target: Target = {
-    update(specifier: string) {
-      setCurrentTarget(target);
-      setCurrentSpecifier(specifier);
-      const value = getter();
-      setCurrentTarget(null);
-      setCurrentSpecifier(null);
-      if (invalidateFn) {
-        invalidateFn();
-      }
-      !isFirstRun && callback(value, oldValue, onInvalidate);
-      oldValue = value;
-      isFirstRun = false;
+    update(_specifier: string) {
+      queueTask(taskRunner, Priority.Low);
     },
     isInUse: true,
   };
-  const specifier = `_watcher_${uniqueSpecifierId++}_`;
-  target.update(specifier);
+  taskRunner();
 
   function unwatch() {
     target.isInUse = false;
