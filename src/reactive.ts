@@ -102,6 +102,7 @@ export function watch<
   R = ReturnType<Getter>,
 >(getter: Getter, callback: WatchCallback<R>): UnwatchFn;
 
+// TODO: support specify the priority of the watch callback
 export function watch(getterOrRef: any, callback: any) {
   const isRef = getterOrRef instanceof Ref;
   const getter = isRef ? () => getterOrRef.value : getterOrRef;
