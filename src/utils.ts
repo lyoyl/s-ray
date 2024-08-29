@@ -25,7 +25,10 @@ export function sanitizeHtml(htmlString: string) {
   return htmlString.replace(/[&<>"']/g, (match) => escapeMap[match as keyof typeof escapeMap]);
 }
 
-type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}`
+/**
+ * @public
+ */
+export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}`
   ? `${Lowercase<P1>}${Uppercase<P2>}${HyphenToCamelCase<P3>}`
   : Lowercase<S>;
 

@@ -1,28 +1,40 @@
 import { expectType } from 'tsd';
 
-import { defineBooleanAttr, defineNumberAttr, defineStringAttr } from '@lyoyl/s-ray';
+import {
+  AttrDefinition,
+  SRayElement,
+  defineBooleanAttr,
+  defineElement,
+  defineNumberAttr,
+  defineStringAttr,
+  html,
+} from '@lyoyl/s-ray';
 
-expectType<{
-  type: BooleanConstructor,
-  default: boolean,
-  propertyName: 'disabled',
-}>(defineBooleanAttr('disabled', false));
+expectType<AttrDefinition<'disabled', BooleanConstructor, boolean, 'disabled'>>(defineBooleanAttr('disabled', false));
 
 // Attribute name: hyphen to camel
-expectType<{
-  type: BooleanConstructor,
-  default: boolean,
-  propertyName: 'myAttr',
-}>(defineBooleanAttr('my-attr', false));
+expectType<AttrDefinition<'my-attr', BooleanConstructor, boolean, 'myAttr'>>(defineBooleanAttr('my-attr', false));
 
-expectType<{
-  type: NumberConstructor,
-  default: number,
-  propertyName: 'myAttr',
-}>(defineNumberAttr('my-attr', 0));
+expectType<AttrDefinition<'my-attr', NumberConstructor, number, 'myAttr'>>(defineNumberAttr('my-attr', 0));
 
-expectType<{
-  type: StringConstructor,
-  default: string,
-  propertyName: 'myAttr',
-}>(defineStringAttr('my-attr', ''));
+expectType<AttrDefinition<'my-attr', StringConstructor, string, 'myAttr'>>(defineStringAttr('my-attr', ''));
+
+// defineElement()
+const MyApp = defineElement({
+  name: 'my-app',
+  attrs: [
+    defineNumberAttr('my-attr', 0),
+    defineBooleanAttr('disabled', false),
+    defineStringAttr('my-another-attr', 'default'),
+  ] as const, // We have to use `as const` to prevent TypeScript from widening the type of the array
+  setup() {
+    return {
+      template: html``,
+    };
+  },
+});
+
+const myApp = new MyApp();
+expectType<boolean>(myApp.disabled);
+expectType<number>(myApp.myAttr);
+expectType<string>(myApp.myAnotherAttr);

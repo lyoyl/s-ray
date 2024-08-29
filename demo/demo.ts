@@ -1,10 +1,12 @@
-import { defineBooleanAttr } from '../src/defineElement.js';
+import { defineBooleanAttr, defineNumberAttr } from '../src/defineElement.js';
 import { defineElement, html, ref, watch } from '../src/index.js';
 
 const disabled = defineBooleanAttr('disabled', false);
+const myAttr = defineNumberAttr('my-attr', 0);
 
-defineElement({
+const MyApp = defineElement({
   name: 'my-app',
+  attrs: [disabled, myAttr] as const,
   setup() {
     const counter = ref(0);
 
@@ -22,3 +24,6 @@ defineElement({
     };
   },
 });
+
+const aaa: InstanceType<typeof MyApp> = new MyApp();
+aaa.myAttr = 10;

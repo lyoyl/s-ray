@@ -5,7 +5,21 @@
 ```ts
 
 // @public (undocumented)
-export interface ComponentOptions {
+export interface AttrDefinition<N extends string = string, T = BooleanConstructor | NumberConstructor | StringConstructor, D = ExtractAttrDefault<T>, P = HyphenToCamelCase<N>> {
+    // (undocumented)
+    default: D;
+    // (undocumented)
+    name: N;
+    // (undocumented)
+    propertyName: P;
+    // (undocumented)
+    type: T;
+}
+
+// @public (undocumented)
+export interface ComponentOptions<AttrDefinitions> {
+    // (undocumented)
+    attrs?: AttrDefinitions;
     // (undocumented)
     name: string;
     // (undocumented)
@@ -13,28 +27,18 @@ export interface ComponentOptions {
 }
 
 // @public (undocumented)
-export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): {
-    type: BooleanConstructor;
-    default: boolean;
-    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
-};
+export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;
 
 // @public (undocumented)
-export function defineElement(options: ComponentOptions): void;
+export function defineElement<AttrDefinitions extends ReadonlyAttrDefinitions, ElementInstance = {
+    new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
+}>(options: ComponentOptions<AttrDefinitions>): ElementInstance;
 
 // @public (undocumented)
-export function defineNumberAttr<S extends string>(name: S, defaultValue: number): {
-    type: NumberConstructor;
-    default: number;
-    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
-};
+export function defineNumberAttr<S extends string>(name: S, defaultValue: number): AttrDefinition<S, NumberConstructor>;
 
 // @public (undocumented)
-export function defineStringAttr<S extends string>(name: S, defaultValue: string): {
-    type: StringConstructor;
-    default: string;
-    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
-};
+export function defineStringAttr<S extends string>(name: S, defaultValue: string): AttrDefinition<S, StringConstructor>;
 
 // Warning: (ae-forgotten-export) The symbol "DomRef" needs to be exported by the entry point index.d.ts
 //
@@ -47,12 +51,18 @@ export function domRef<T extends Element>(): DomRef<T>;
 export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 // @public (undocumented)
+export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
+
+// @public (undocumented)
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
 
 // Warning: (ae-forgotten-export) The symbol "TemplateKey" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
 export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
+
+// @public (undocumented)
+export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${HyphenToCamelCase<P3>}` : Lowercase<S>;
 
 // @public (undocumented)
 export function nextTick(): Promise<void>;
@@ -76,6 +86,9 @@ export enum Priority {
 export function queueTask(task: CallableFunction, priority?: Priority): void;
 
 // @public (undocumented)
+export type ReadonlyAttrDefinitions = readonly AttrDefinition<string, any, any, any>[];
+
+// @public (undocumented)
 export class Ref<T = unknown> {
     constructor(value: T);
     // (undocumented)
@@ -90,6 +103,19 @@ export function ref<T = unknown>(value: T): Ref<T>;
 export interface SetupResult {
     // (undocumented)
     template: Template;
+}
+
+// @public (undocumented)
+export class SRayElement<AttrDefinitions extends ReadonlyAttrDefinitions = ReadonlyAttrDefinitions> extends HTMLElement {
+    constructor(options: ComponentOptions<AttrDefinitions>);
+    // (undocumented)
+    connectedCallback(): void;
+    // (undocumented)
+    disconnectedCallback(): void;
+    // (undocumented)
+    options: ComponentOptions<AttrDefinitions>;
+    // (undocumented)
+    registerCleanup(cleanup: CallableFunction): void;
 }
 
 // @public (undocumented)
@@ -136,6 +162,10 @@ export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Get
 
 // @public (undocumented)
 export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
+
+// Warnings were encountered during analysis:
+//
+// src/defineElement.ts:115:23 - (ae-forgotten-export) The symbol "ExtractPropertyFromAttrDefinitions" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
