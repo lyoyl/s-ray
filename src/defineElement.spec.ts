@@ -12,7 +12,7 @@ describe('defineElement', () => {
 
     defineElement({
       name: 'my-app',
-      connected() {
+      setup() {
         const counter = ref(0);
 
         watch(counter, cb);

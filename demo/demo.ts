@@ -2,7 +2,7 @@ import { defineElement, html, ref, watch } from '../src/index.js';
 
 defineElement({
   name: 'my-app',
-  connected() {
+  setup() {
     const counter = ref(0);
 
     watch(counter, (newValue, oldValue) => {
