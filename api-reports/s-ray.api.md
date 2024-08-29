@@ -13,7 +13,28 @@ export interface ComponentOptions {
 }
 
 // @public (undocumented)
+export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): {
+    type: BooleanConstructor;
+    default: boolean;
+    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
+};
+
+// @public (undocumented)
 export function defineElement(options: ComponentOptions): void;
+
+// @public (undocumented)
+export function defineNumberAttr<S extends string>(name: S, defaultValue: number): {
+    type: NumberConstructor;
+    default: number;
+    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
+};
+
+// @public (undocumented)
+export function defineStringAttr<S extends string>(name: S, defaultValue: string): {
+    type: StringConstructor;
+    default: string;
+    propertyName: S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${P3 extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${any}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<P3>}` : Lowercase<S>;
+};
 
 // Warning: (ae-forgotten-export) The symbol "DomRef" needs to be exported by the entry point index.d.ts
 //

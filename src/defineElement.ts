@@ -1,4 +1,5 @@
 import { Template } from './html.js';
+import { hypheToCamel } from './utils.js';
 
 /**
  * @public
@@ -72,4 +73,37 @@ export function defineElement(options: ComponentOptions) {
       }
     },
   );
+}
+
+/**
+ * @public
+ */
+export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean) {
+  return {
+    type: Boolean,
+    default: defaultValue,
+    propertyName: hypheToCamel<S>(name),
+  };
+}
+
+/**
+ * @public
+ */
+export function defineStringAttr<S extends string>(name: S, defaultValue: string) {
+  return {
+    type: String,
+    default: defaultValue,
+    propertyName: hypheToCamel<S>(name),
+  };
+}
+
+/**
+ * @public
+ */
+export function defineNumberAttr<S extends string>(name: S, defaultValue: number) {
+  return {
+    type: Number,
+    default: defaultValue,
+    propertyName: hypheToCamel<S>(name),
+  };
 }

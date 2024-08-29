@@ -1,4 +1,7 @@
+import { defineBooleanAttr } from '../src/defineElement.js';
 import { defineElement, html, ref, watch } from '../src/index.js';
+
+const disabled = defineBooleanAttr('disabled', false);
 
 defineElement({
   name: 'my-app',

@@ -27,7 +27,8 @@
   "scripts": {
     "build": "node ./scripts/build.js && npm run tsc && npm run dts",
     "tsc": "tsc",
-    "dts": "api-extractor run --local --verbose",
+    "dts": "npm run tsc & api-extractor run --local --verbose",
+    "dts-test": "npm run dts & tsd --files dts-tests/*test-d.ts",
     "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__DEV__=true",
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
@@ -46,6 +47,7 @@
     "dprint": "^0.47.2",
     "esbuild": "^0.23.0",
     "sinon": "^18.0.0",
+    "tsd": "^0.31.1",
     "typescript": "^5.5.4"
   }
 }
