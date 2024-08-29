@@ -4,6 +4,17 @@
 
 ```ts
 
+// @public (undocumented)
+export interface ComponentOptions {
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    setup: () => SetupResult;
+}
+
+// @public (undocumented)
+export function defineElement(options: ComponentOptions): void;
+
 // Warning: (ae-forgotten-export) The symbol "DomRef" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
@@ -53,6 +64,12 @@ export class Ref<T = unknown> {
 
 // @public (undocumented)
 export function ref<T = unknown>(value: T): Ref<T>;
+
+// @public (undocumented)
+export interface SetupResult {
+    // (undocumented)
+    template: Template;
+}
 
 // @public (undocumented)
 export class Template {

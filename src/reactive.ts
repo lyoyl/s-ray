@@ -1,3 +1,4 @@
+import { currentInstance } from './defineElement.js';
 import { Priority, queueTask } from './scheduler.js';
 
 export let currentTarget: Target | null = null;
@@ -140,5 +141,8 @@ export function watch(getterOrRef: any, callback: any) {
   function unwatch() {
     target.isInUse = false;
   }
+
+  currentInstance?.registerCleanup(unwatch);
+
   return unwatch;
 }

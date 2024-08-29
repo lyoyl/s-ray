@@ -1,10 +1,16 @@
 import { Template } from './html.js';
 
-interface SetupResult {
+/**
+ * @public
+ */
+export interface SetupResult {
   template: Template;
 }
 
-interface ComponentOptions {
+/**
+ * @public
+ */
+export interface ComponentOptions {
   name: string;
   setup: () => SetupResult;
 }
@@ -22,7 +28,13 @@ export function recoverCurrentInstance() {
   currentInstance = instanceStack.at(-1)!;
 }
 
+/**
+ * @public
+ */
 class SRayElement extends HTMLElement {
+  #cleanups: Set<CallableFunction> = new Set();
+  #setupResult: SetupResult | null = null;
+
   constructor(public options: ComponentOptions) {
     super();
     this.attachShadow({ mode: 'open' });
@@ -30,12 +42,27 @@ class SRayElement extends HTMLElement {
 
   connectedCallback() {
     setCurrentInstance(this);
-    const setupResult = this.options.setup();
-    setupResult.template.mountTo(this.shadowRoot!);
+    this.#setupResult = this.options.setup();
+    this.#setupResult.template.mountTo(this.shadowRoot!);
     recoverCurrentInstance();
+  }
+
+  disconnectedCallback() {
+    this.#cleanups.forEach(cleanup => cleanup());
+  }
+
+  /**
+   * @private
+   */
+  registerCleanup(cleanup: CallableFunction) {
+    this.#cleanups.add(cleanup);
+    this.#setupResult?.template.unmount();
   }
 }
 
+/**
+ * @public
+ */
 export function defineElement(options: ComponentOptions) {
   customElements.define(
     options.name,
