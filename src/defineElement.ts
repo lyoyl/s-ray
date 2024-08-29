@@ -3,7 +3,7 @@ import { Template } from './html.js';
 /**
  * @public
  */
-export interface SetupResult {
+export interface ConnectedResult {
   template: Template;
 }
 
@@ -12,7 +12,7 @@ export interface SetupResult {
  */
 export interface ComponentOptions {
   name: string;
-  setup: () => SetupResult;
+  connected: () => ConnectedResult;
 }
 
 export let currentInstance: SRayElement;
@@ -33,7 +33,7 @@ export function recoverCurrentInstance() {
  */
 class SRayElement extends HTMLElement {
   #cleanups: Set<CallableFunction> = new Set();
-  #setupResult: SetupResult | null = null;
+  #connectedResult: ConnectedResult | null = null;
 
   constructor(public options: ComponentOptions) {
     super();
@@ -42,8 +42,8 @@ class SRayElement extends HTMLElement {
 
   connectedCallback() {
     setCurrentInstance(this);
-    this.#setupResult = this.options.setup();
-    this.#setupResult.template.mountTo(this.shadowRoot!);
+    this.#connectedResult = this.options.connected();
+    this.#connectedResult.template.mountTo(this.shadowRoot!);
     recoverCurrentInstance();
   }
 
@@ -56,7 +56,7 @@ class SRayElement extends HTMLElement {
    */
   registerCleanup(cleanup: CallableFunction) {
     this.#cleanups.add(cleanup);
-    this.#setupResult?.template.unmount();
+    this.#connectedResult?.template.unmount();
   }
 }
 

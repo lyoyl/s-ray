@@ -7,9 +7,15 @@
 // @public (undocumented)
 export interface ComponentOptions {
     // (undocumented)
-    name: string;
+    connected: () => ConnectedResult;
     // (undocumented)
-    setup: () => SetupResult;
+    name: string;
+}
+
+// @public (undocumented)
+export interface ConnectedResult {
+    // (undocumented)
+    template: Template;
 }
 
 // @public (undocumented)
@@ -64,12 +70,6 @@ export class Ref<T = unknown> {
 
 // @public (undocumented)
 export function ref<T = unknown>(value: T): Ref<T>;
-
-// @public (undocumented)
-export interface SetupResult {
-    // (undocumented)
-    template: Template;
-}
 
 // @public (undocumented)
 export class Template {
