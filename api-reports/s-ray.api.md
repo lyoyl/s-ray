@@ -54,6 +54,9 @@ export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
 
 // @public (undocumented)
+export function getHostElement<El extends SRayElement>(): El;
+
+// @public (undocumented)
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
 
 // Warning: (ae-forgotten-export) The symbol "TemplateKey" needs to be exported by the entry point index.d.ts
