@@ -25,7 +25,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "node ./scripts/build.js && npm run tsc && npm run dts",
+    "build": "node ./scripts/build.js && npm run dts",
     "tsc": "tsc",
     "dts": "npm run tsc & api-extractor run --local --verbose",
     "dts-test": "npm run dts & tsd --files dts-tests/*test-d.ts",

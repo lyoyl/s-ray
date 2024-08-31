@@ -17,22 +17,20 @@ export interface AttrDefinition<N extends string = string, T = BooleanConstructo
 }
 
 // @public (undocumented)
-export interface ComponentOptions<AttrDefinitions> {
+export interface ComponentOptions<AttrDefinitions extends AttrDefinition[]> {
     // (undocumented)
     attrs?: AttrDefinitions;
     // (undocumented)
     name: string;
     // (undocumented)
-    setup: () => SetupResult;
+    setup: (hostElement: ElementInstance<AttrDefinitions>) => SetupResult;
 }
 
 // @public (undocumented)
 export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;
 
 // @public (undocumented)
-export function defineElement<AttrDefinitions extends AttrDefinition[], ElementInstance = {
-    new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
-}>(options: ComponentOptions<AttrDefinitions>): ElementInstance;
+export function defineElement<AttrDefinitions extends AttrDefinition[]>(options: ComponentOptions<AttrDefinitions>): ElementConstructor<AttrDefinitions>;
 
 // @public (undocumented)
 export function defineNumberAttr<S extends string>(name: S, defaultValue: number): AttrDefinition<S, NumberConstructor>;
@@ -51,6 +49,14 @@ export function domRef<T extends Element>(): DomRef<T>;
 export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 // @public (undocumented)
+export type ElementConstructor<AttrDefinitions extends AttrDefinition[]> = {
+    new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
+};
+
+// @public (undocumented)
+export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = InstanceType<ElementConstructor<AttrDefinitions>>;
+
+// @public (undocumented)
 export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
 
 // @public (undocumented)
@@ -59,10 +65,7 @@ export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinit
 } : never : never;
 
 // @public (undocumented)
-export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends readonly [infer AttrD, ...infer Rest] ? ExtractPropertyFromAttrDefinition<AttrD> & ExtractPropertyFromAttrDefinitions<Rest> : {};
-
-// @public (undocumented)
-export function getHostElement<El extends SRayElement>(): El;
+export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends [infer AttrD, ...infer Rest] ? ExtractPropertyFromAttrDefinition<AttrD> & ExtractPropertyFromAttrDefinitions<Rest> : {};
 
 // @public (undocumented)
 export function html(strings: TemplateStringsArray, ...values: unknown[]): Template;
@@ -114,10 +117,10 @@ export interface SetupResult {
 }
 
 // @public (undocumented)
-export class SRayElement<AttrDefinitions extends AttrDefinition[] = AttrDefinition[]> extends HTMLElement {
+export class SRayElement<AttrDefinitions extends AttrDefinition[]> extends HTMLElement {
     constructor(options: ComponentOptions<AttrDefinitions>);
     // (undocumented)
-    connectedCallback(): void;
+    connectedCallback(this: ElementInstance<AttrDefinitions>): void;
     // (undocumented)
     disconnectedCallback(): void;
     // (undocumented)

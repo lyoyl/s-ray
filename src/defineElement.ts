@@ -8,10 +8,12 @@ export interface SetupResult {
   template: Template;
 }
 
-export let currentInstance: SRayElement;
-const instanceStack: SRayElement[] = [];
+export let currentInstance: ElementInstance<any>;
+const instanceStack: ElementInstance<any>[] = [];
 
-export function setCurrentInstance(instance: SRayElement) {
+export function setCurrentInstance<AttrDefinitions extends AttrDefinition[]>(
+  instance: ElementInstance<AttrDefinitions>,
+) {
   currentInstance = instance;
   instanceStack.push(instance!);
 }
@@ -25,7 +27,7 @@ export function recoverCurrentInstance() {
  * @public
  */
 export class SRayElement<
-  AttrDefinitions extends AttrDefinition[] = AttrDefinition[],
+  AttrDefinitions extends AttrDefinition[],
 > extends HTMLElement {
   #cleanups: Set<CallableFunction> = new Set();
   #setupResult: SetupResult | null = null;
@@ -35,9 +37,9 @@ export class SRayElement<
     this.attachShadow({ mode: 'open' });
   }
 
-  connectedCallback() {
+  connectedCallback(this: ElementInstance<AttrDefinitions>) {
     setCurrentInstance(this);
-    this.#setupResult = this.options.setup();
+    this.#setupResult = this.options.setup(this);
     this.#setupResult.template.mountTo(this.shadowRoot!);
     recoverCurrentInstance();
   }
@@ -82,10 +84,10 @@ export interface AttrDefinition<
 /**
  * @public
  */
-export interface ComponentOptions<AttrDefinitions> {
+export interface ComponentOptions<AttrDefinitions extends AttrDefinition[]> {
   name: string;
   attrs?: AttrDefinitions;
-  setup: () => SetupResult;
+  setup: (hostElement: ElementInstance<AttrDefinitions>) => SetupResult;
 }
 
 /**
@@ -101,25 +103,38 @@ export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinit
 /**
  * @public
  */
-export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends
-  readonly [infer AttrD, ...infer Rest]
+export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends [infer AttrD, ...infer Rest]
   ? ExtractPropertyFromAttrDefinition<AttrD> & ExtractPropertyFromAttrDefinitions<Rest>
   : {};
 
 /**
  * @public
  */
+// The constroctor type of the SRayElement
+export type ElementConstructor<AttrDefinitions extends AttrDefinition[]> = {
+  new(): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>,
+};
+
+/**
+ * @public
+ */
+export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = InstanceType<
+  ElementConstructor<AttrDefinitions>
+>;
+
+/**
+ * @public
+ */
 export function defineElement<
   AttrDefinitions extends AttrDefinition[],
-  ElementInstance = { new(): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions> },
->(options: ComponentOptions<AttrDefinitions>): ElementInstance {
-  const Element = class extends SRayElement {
+>(options: ComponentOptions<AttrDefinitions>): ElementConstructor<AttrDefinitions> {
+  const Element = class extends SRayElement<AttrDefinitions> {
     constructor() {
       super(options);
     }
   };
   customElements.define(options.name, Element);
-  return Element as ElementInstance;
+  return Element as ElementConstructor<AttrDefinitions>;
 }
 
 /**

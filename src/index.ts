@@ -1,7 +1,8 @@
-export { getHostElement } from './composables.js';
 export {
   AttrDefinition,
   ComponentOptions,
+  ElementConstructor,
+  ElementInstance,
   ExtractAttrDefault,
   ExtractPropertyFromAttrDefinition,
   ExtractPropertyFromAttrDefinitions,

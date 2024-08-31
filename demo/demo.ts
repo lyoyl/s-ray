@@ -1,5 +1,5 @@
 import { defineBooleanAttr, defineNumberAttr } from '../src/defineElement.js';
-import { defineElement, getHostElement, html, ref, watch } from '../src/index.js';
+import { defineElement, html, ref, watch } from '../src/index.js';
 
 const disabled = defineBooleanAttr('disabled', false);
 const myAttr = defineNumberAttr('my-attr', 0);
@@ -7,14 +7,15 @@ const myAttr = defineNumberAttr('my-attr', 0);
 const MyApp = defineElement({
   name: 'my-app',
   attrs: [disabled, myAttr] as const,
-  setup() {
+  setup(hostElement) {
     const counter = ref(0);
 
     watch(counter, (newValue, oldValue) => {
       console.log('counter changed from', oldValue, 'to', newValue);
     });
 
-    const hostEl = getHostElement<InstanceType<typeof MyApp>>();
+    hostElement.disabled = true;
+    hostElement.myAttr = 10;
 
     return {
       template: html`

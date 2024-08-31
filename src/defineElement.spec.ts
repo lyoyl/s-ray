@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { fake, useFakeTimers } from 'sinon';
+import { fake } from 'sinon';
 
 import { defineElement } from './defineElement.js';
 import { html } from './html.js';
@@ -45,5 +45,22 @@ describe('defineElement', () => {
     button.click();
     await nextTick();
     expect(cb.callCount).to.equal(0);
+  });
+
+  it('the first argument of the setup() function is the host element itself', async () => {
+    let hostEl;
+    const MyElement = defineElement({
+      name: 'my-element',
+      setup(hostElement) {
+        hostEl = hostElement;
+        return {
+          template: html``,
+        };
+      },
+    });
+
+    const myEl = new MyElement();
+    document.body.appendChild(myEl);
+    expect(hostEl).to.equal(myEl);
   });
 });
