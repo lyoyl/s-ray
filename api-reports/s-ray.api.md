@@ -50,6 +50,7 @@ export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 // @public (undocumented)
 export type ElementConstructor<AttrDefinitions extends AttrDefinition[]> = {
+    observedAttributes: ExtractAttrNames<AttrDefinitions>[];
     new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
 };
 
@@ -58,6 +59,12 @@ export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = Instance
 
 // @public (undocumented)
 export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
+
+// @public (undocumented)
+export type ExtractAttrName<AttrD> = AttrD extends AttrDefinition<infer N, any, any, any> ? N : never;
+
+// @public (undocumented)
+export type ExtractAttrNames<AttrDefinitions> = AttrDefinitions extends [infer AttrD, ...infer Rest] ? ExtractAttrName<AttrD> | ExtractAttrNames<Rest> : never;
 
 // @public (undocumented)
 export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P> ? P extends string ? {
@@ -120,7 +127,11 @@ export interface SetupResult {
 export class SRayElement<AttrDefinitions extends AttrDefinition[]> extends HTMLElement {
     constructor(options: ComponentOptions<AttrDefinitions>);
     // (undocumented)
-    connectedCallback(this: ElementInstance<AttrDefinitions>): void;
+    [key: string]: any;
+    // (undocumented)
+    attributeChangedCallback<K extends keyof ElementInstance<AttrDefinitions>, V extends ElementInstance<AttrDefinitions>[K]>(this: ElementInstance<AttrDefinitions>, name: string, oldValue: string | null, newValue: string | null): void;
+    // (undocumented)
+    connectedCallback<K extends keyof ElementInstance<AttrDefinitions>, V extends ElementInstance<AttrDefinitions>[K]>(this: ElementInstance<AttrDefinitions>): void;
     // (undocumented)
     disconnectedCallback(): void;
     // (undocumented)

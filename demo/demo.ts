@@ -14,19 +14,17 @@ const MyApp = defineElement({
       console.log('counter changed from', oldValue, 'to', newValue);
     });
 
-    hostElement.disabled = true;
-    hostElement.myAttr = 10;
+    // hostElement.disabled = true;
+    // hostElement.myAttr = 12;
 
     return {
       template: html`
         <div>
           <button @click=${() => counter.value++}>Increment</button>
           <span>${() => counter.value}</span>
+          <input type='checkbox' checked name=cheese disabled="false"> 
         </div>
       `,
     };
   },
 });
-
-const aaa: InstanceType<typeof MyApp> = new MyApp();
-aaa.myAttr = 10;

@@ -41,3 +41,8 @@ const myApp = new MyApp();
 expectType<boolean>(myApp.disabled);
 expectType<number>(myApp.myAttr);
 expectType<string>(myApp.myAnotherAttr);
+
+declare const myApp2: InstanceType<typeof MyApp>;
+expectType<boolean>(myApp2.disabled);
+expectType<number>(myApp2.myAttr);
+expectType<string>(myApp2.myAnotherAttr);

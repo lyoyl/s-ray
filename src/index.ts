@@ -4,6 +4,8 @@ export {
   ElementConstructor,
   ElementInstance,
   ExtractAttrDefault,
+  ExtractAttrName,
+  ExtractAttrNames,
   ExtractPropertyFromAttrDefinition,
   ExtractPropertyFromAttrDefinitions,
   SRayElement,
