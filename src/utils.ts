@@ -30,7 +30,7 @@ export function sanitizeHtml(htmlString: string) {
  */
 export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}`
   ? `${Lowercase<P1>}${Uppercase<P2>}${HyphenToCamelCase<P3>}`
-  : Lowercase<S>;
+  : S;
 
 export function hypheToCamel<S extends string>(str: S): HyphenToCamelCase<S> {
   return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) as HyphenToCamelCase<S>;

@@ -30,7 +30,7 @@ export interface ComponentOptions<AttrDefinitions> {
 export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;
 
 // @public (undocumented)
-export function defineElement<AttrDefinitions extends ReadonlyAttrDefinitions, ElementInstance = {
+export function defineElement<AttrDefinitions extends AttrDefinition[], ElementInstance = {
     new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
 }>(options: ComponentOptions<AttrDefinitions>): ElementInstance;
 
@@ -54,6 +54,14 @@ export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
 
 // @public (undocumented)
+export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P> ? P extends string ? {
+    [K in P]: D;
+} : never : never;
+
+// @public (undocumented)
+export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends readonly [infer AttrD, ...infer Rest] ? ExtractPropertyFromAttrDefinition<AttrD> & ExtractPropertyFromAttrDefinitions<Rest> : {};
+
+// @public (undocumented)
 export function getHostElement<El extends SRayElement>(): El;
 
 // @public (undocumented)
@@ -65,7 +73,7 @@ export function html(strings: TemplateStringsArray, ...values: unknown[]): Templ
 export function html(key: TemplateKey): (strings: TemplateStringsArray, ...values: unknown[]) => Template;
 
 // @public (undocumented)
-export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${HyphenToCamelCase<P3>}` : Lowercase<S>;
+export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer P2}${infer P3}` ? `${Lowercase<P1>}${Uppercase<P2>}${HyphenToCamelCase<P3>}` : S;
 
 // @public (undocumented)
 export function nextTick(): Promise<void>;
@@ -89,9 +97,6 @@ export enum Priority {
 export function queueTask(task: CallableFunction, priority?: Priority): void;
 
 // @public (undocumented)
-export type ReadonlyAttrDefinitions = readonly AttrDefinition<string, any, any, any>[];
-
-// @public (undocumented)
 export class Ref<T = unknown> {
     constructor(value: T);
     // (undocumented)
@@ -109,7 +114,7 @@ export interface SetupResult {
 }
 
 // @public (undocumented)
-export class SRayElement<AttrDefinitions extends ReadonlyAttrDefinitions = ReadonlyAttrDefinitions> extends HTMLElement {
+export class SRayElement<AttrDefinitions extends AttrDefinition[] = AttrDefinition[]> extends HTMLElement {
     constructor(options: ComponentOptions<AttrDefinitions>);
     // (undocumented)
     connectedCallback(): void;
@@ -165,10 +170,6 @@ export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Get
 
 // @public (undocumented)
 export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
-
-// Warnings were encountered during analysis:
-//
-// src/defineElement.ts:115:23 - (ae-forgotten-export) The symbol "ExtractPropertyFromAttrDefinitions" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

@@ -25,7 +25,7 @@ export function recoverCurrentInstance() {
  * @public
  */
 export class SRayElement<
-  AttrDefinitions extends ReadonlyAttrDefinitions = ReadonlyAttrDefinitions,
+  AttrDefinitions extends AttrDefinition[] = AttrDefinition[],
 > extends HTMLElement {
   #cleanups: Set<CallableFunction> = new Set();
   #setupResult: SetupResult | null = null;
@@ -46,9 +46,6 @@ export class SRayElement<
     this.#cleanups.forEach(cleanup => cleanup());
   }
 
-  /**
-   * @private
-   */
   registerCleanup(cleanup: CallableFunction) {
     this.#cleanups.add(cleanup);
     this.#setupResult?.template.unmount();
@@ -85,25 +82,27 @@ export interface AttrDefinition<
 /**
  * @public
  */
-export type ReadonlyAttrDefinitions = readonly AttrDefinition<string, any, any, any>[];
-
-/**
- * @public
- */
 export interface ComponentOptions<AttrDefinitions> {
   name: string;
   attrs?: AttrDefinitions;
   setup: () => SetupResult;
 }
 
+/**
+ * @public
+ */
 // dprint-ignore
-type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P>
+export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P>
   ? P extends string
     ? { [K in P]: D }
     : never
   : never;
 
-type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends readonly [infer AttrD, ...infer Rest]
+/**
+ * @public
+ */
+export type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions extends
+  readonly [infer AttrD, ...infer Rest]
   ? ExtractPropertyFromAttrDefinition<AttrD> & ExtractPropertyFromAttrDefinitions<Rest>
   : {};
 
@@ -111,7 +110,7 @@ type ExtractPropertyFromAttrDefinitions<AttrDefinitions> = AttrDefinitions exten
  * @public
  */
 export function defineElement<
-  AttrDefinitions extends ReadonlyAttrDefinitions,
+  AttrDefinitions extends AttrDefinition[],
   ElementInstance = { new(): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions> },
 >(options: ComponentOptions<AttrDefinitions>): ElementInstance {
   const Element = class extends SRayElement {
