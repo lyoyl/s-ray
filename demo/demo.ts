@@ -1,12 +1,14 @@
-import { defineBooleanAttr, defineNumberAttr } from '../src/defineAttributes.js';
-import { defineElement, html, ref, watch } from '../src/index.js';
+import { defineBooleanAttr, defineElement, defineNumberAttr, defineProperty, html, ref, watch } from '../src/index.js';
 
 const disabled = defineBooleanAttr('disabled', false);
 const myAttr = defineNumberAttr('my-attr', 0);
 
+const myProp = defineProperty('myProp', 10);
+
 const MyApp = defineElement({
   name: 'my-app',
   attrs: [disabled, myAttr] as const,
+  props: [myProp] as const,
   setup(hostElement) {
     const counter = ref(0);
 
@@ -16,6 +18,8 @@ const MyApp = defineElement({
 
     // hostElement.disabled = true;
     // hostElement.myAttr = 12;
+    hostElement.myProp;
+    console.log('hostElement.myProp', hostElement.myProp);
 
     return {
       template: html`

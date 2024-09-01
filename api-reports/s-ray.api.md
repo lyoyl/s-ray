@@ -17,23 +17,28 @@ export interface AttrDefinition<N extends string = string, T = BooleanConstructo
 }
 
 // @public (undocumented)
-export interface ComponentOptions<AttrDefinitions extends AttrDefinition[]> {
+export interface ComponentOptions<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> {
     // (undocumented)
     attrs?: AttrDefinitions;
     // (undocumented)
     name: string;
     // (undocumented)
-    setup: (hostElement: ElementInstance<AttrDefinitions>) => SetupResult;
+    props?: PropDefinitions;
+    // (undocumented)
+    setup: (hostElement: ElementInstance<AttrDefinitions, PropDefinitions>) => SetupResult;
 }
 
 // @public (undocumented)
 export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;
 
 // @public (undocumented)
-export function defineElement<AttrDefinitions extends AttrDefinition[]>(options: ComponentOptions<AttrDefinitions>): ElementConstructor<AttrDefinitions>;
+export function defineElement<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]>(options: ComponentOptions<AttrDefinitions, PropDefinitions>): ElementConstructor<AttrDefinitions, PropDefinitions>;
 
 // @public (undocumented)
 export function defineNumberAttr<S extends string>(name: S, defaultValue: number): AttrDefinition<S, NumberConstructor>;
+
+// @public (undocumented)
+export function defineProperty<T, N extends string>(name: N, defaultValue?: T): PropDefinition<N, T>;
 
 // @public (undocumented)
 export function defineStringAttr<S extends string>(name: S, defaultValue: string): AttrDefinition<S, StringConstructor>;
@@ -49,13 +54,13 @@ export function domRef<T extends Element>(): DomRef<T>;
 export type DynamicInterpolators = FunctionInterpolator | Template | DomRef;
 
 // @public (undocumented)
-export type ElementConstructor<AttrDefinitions extends AttrDefinition[]> = {
+export type ElementConstructor<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> = {
     observedAttributes: ExtractAttrNames<AttrDefinitions>[];
-    new (): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>;
+    new (): SRayElement<AttrDefinitions, PropDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions> & ExtractPropertiesFromPropDefinitions<PropDefinitions>;
 };
 
 // @public (undocumented)
-export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = InstanceType<ElementConstructor<AttrDefinitions>>;
+export type ElementInstance<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> = InstanceType<ElementConstructor<AttrDefinitions, PropDefinitions>>;
 
 // @public (undocumented)
 export type ExtractAttrDefault<T> = T extends BooleanConstructor ? boolean : T extends NumberConstructor ? number : T extends StringConstructor ? string : never;
@@ -65,6 +70,17 @@ export type ExtractAttrName<AttrD> = AttrD extends AttrDefinition<infer N, any, 
 
 // @public (undocumented)
 export type ExtractAttrNames<AttrDefinitions> = AttrDefinitions extends [infer AttrD, ...infer Rest] ? ExtractAttrName<AttrD> | ExtractAttrNames<Rest> : never;
+
+// @public (undocumented)
+export type ExtractPropertiesFromPropDefinition<PropDefinition> = PropDefinition extends {
+    name: infer N;
+    default?: infer D;
+} ? N extends string ? {
+    [K in N]: D;
+} : never : never;
+
+// @public (undocumented)
+export type ExtractPropertiesFromPropDefinitions<PropDefinitions> = PropDefinitions extends [infer PropDefinition, ...infer Rest] ? ExtractPropertiesFromPropDefinition<PropDefinition> & ExtractPropertiesFromPropDefinitions<Rest> : {};
 
 // @public (undocumented)
 export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P> ? P extends string ? {
@@ -104,6 +120,14 @@ export enum Priority {
 }
 
 // @public (undocumented)
+export interface PropDefinition<N extends string = string, T extends any = any> {
+    // (undocumented)
+    default?: T;
+    // (undocumented)
+    name: N;
+}
+
+// @public (undocumented)
 export function queueTask(task: CallableFunction, priority?: Priority): void;
 
 // @public (undocumented)
@@ -124,18 +148,18 @@ export interface SetupResult {
 }
 
 // @public (undocumented)
-export class SRayElement<AttrDefinitions extends AttrDefinition[]> extends HTMLElement {
-    constructor(options: ComponentOptions<AttrDefinitions>);
+export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> extends HTMLElement {
+    constructor(options: ComponentOptions<AttrDefinitions, PropDefinitions>);
     // (undocumented)
     [key: string]: any;
     // (undocumented)
-    attributeChangedCallback<K extends keyof ElementInstance<AttrDefinitions>, V extends ElementInstance<AttrDefinitions>[K]>(this: ElementInstance<AttrDefinitions>, name: string, oldValue: string | null, newValue: string | null): void;
+    attributeChangedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>, name: string, oldValue: string | null, newValue: string | null): void;
     // (undocumented)
-    connectedCallback<K extends keyof ElementInstance<AttrDefinitions>, V extends ElementInstance<AttrDefinitions>[K]>(this: ElementInstance<AttrDefinitions>): void;
+    connectedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>): void;
     // (undocumented)
     disconnectedCallback(): void;
     // (undocumented)
-    options: ComponentOptions<AttrDefinitions>;
+    options: ComponentOptions<AttrDefinitions, PropDefinitions>;
     // (undocumented)
     registerCleanup(cleanup: CallableFunction): void;
 }

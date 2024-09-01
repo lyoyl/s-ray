@@ -1,4 +1,5 @@
 import { AttrDefinition, ExtractAttrNames, ExtractPropertyFromAttrDefinitions } from './defineAttributes.js';
+import { ExtractPropertiesFromPropDefinitions, PropDefinition } from './defineProperty.js';
 import { Template } from './html.js';
 import { ref } from './reactive.js';
 
@@ -9,11 +10,14 @@ export interface SetupResult {
   template: Template;
 }
 
-export let currentInstance: ElementInstance<any>;
-const instanceStack: ElementInstance<any>[] = [];
+export let currentInstance: ElementInstance<any, any>;
+const instanceStack: ElementInstance<any, any>[] = [];
 
-export function setCurrentInstance<AttrDefinitions extends AttrDefinition[]>(
-  instance: ElementInstance<AttrDefinitions>,
+export function setCurrentInstance<
+  AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
+>(
+  instance: ElementInstance<AttrDefinitions, PropDefinitions>,
 ) {
   currentInstance = instance;
   instanceStack.push(instance!);
@@ -29,6 +33,7 @@ export function recoverCurrentInstance() {
  */
 export class SRayElement<
   AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
 > extends HTMLElement {
   [key: string]: any;
 
@@ -37,15 +42,15 @@ export class SRayElement<
 
   #attrs: Record<string, AttrDefinition> = {};
 
-  constructor(public options: ComponentOptions<AttrDefinitions>) {
+  constructor(public options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
     super();
     this.attachShadow({ mode: 'open' });
   }
 
   connectedCallback<
-    K extends keyof ElementInstance<AttrDefinitions>,
-    V extends ElementInstance<AttrDefinitions>[K],
-  >(this: ElementInstance<AttrDefinitions>) {
+    K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>,
+    V extends ElementInstance<AttrDefinitions, PropDefinitions>[K],
+  >(this: ElementInstance<AttrDefinitions, PropDefinitions>) {
     setCurrentInstance(this);
     this.options.attrs?.forEach(attr => {
       this.#attrs[attr.name] = attr;
@@ -62,14 +67,20 @@ export class SRayElement<
   }
 
   attributeChangedCallback<
-    K extends keyof ElementInstance<AttrDefinitions>,
-    V extends ElementInstance<AttrDefinitions>[K],
-  >(this: ElementInstance<AttrDefinitions>, name: string, oldValue: string | null, newValue: string | null) {
+    K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>,
+    V extends ElementInstance<AttrDefinitions, PropDefinitions>[K],
+  >(
+    this: ElementInstance<AttrDefinitions, PropDefinitions>,
+    name: string,
+    oldValue: string | null,
+    newValue: string | null,
+  ) {
     if (oldValue === newValue) return;
     const definition = this.#attrs[name];
     switch (definition.type) {
       case Boolean:
         // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes
+        // TODO: we still need a way to allow user to update the boolean attributes conveniently in the template
         this[definition.propertyName as K] = (newValue !== null) as V;
         break;
       case Number:
@@ -88,26 +99,39 @@ export class SRayElement<
 /**
  * @public
  */
-export interface ComponentOptions<AttrDefinitions extends AttrDefinition[]> {
+export interface ComponentOptions<
+  AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
+> {
   name: string;
   attrs?: AttrDefinitions;
-  setup: (hostElement: ElementInstance<AttrDefinitions>) => SetupResult;
+  props?: PropDefinitions;
+  setup: (hostElement: ElementInstance<AttrDefinitions, PropDefinitions>) => SetupResult;
 }
 
 /**
  * @public
  */
 // The constroctor type of the SRayElement
-export type ElementConstructor<AttrDefinitions extends AttrDefinition[]> = {
+export type ElementConstructor<
+  AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
+> = {
   observedAttributes: ExtractAttrNames<AttrDefinitions>[],
-  new(): SRayElement<AttrDefinitions> & ExtractPropertyFromAttrDefinitions<AttrDefinitions>,
+  new():
+    & SRayElement<AttrDefinitions, PropDefinitions>
+    & ExtractPropertyFromAttrDefinitions<AttrDefinitions>
+    & ExtractPropertiesFromPropDefinitions<PropDefinitions>,
 };
 
 /**
  * @public
  */
-export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = InstanceType<
-  ElementConstructor<AttrDefinitions>
+export type ElementInstance<
+  AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
+> = InstanceType<
+  ElementConstructor<AttrDefinitions, PropDefinitions>
 >;
 
 /**
@@ -115,21 +139,24 @@ export type ElementInstance<AttrDefinitions extends AttrDefinition[]> = Instance
  */
 export function defineElement<
   AttrDefinitions extends AttrDefinition[],
->(options: ComponentOptions<AttrDefinitions>): ElementConstructor<AttrDefinitions> {
-  const Element = class extends SRayElement<AttrDefinitions> {
+  PropDefinitions extends PropDefinition[],
+>(options: ComponentOptions<AttrDefinitions, PropDefinitions>): ElementConstructor<AttrDefinitions, PropDefinitions> {
+  const Element = class extends SRayElement<AttrDefinitions, PropDefinitions> {
     static observedAttributes = options.attrs?.map(attr => attr.name) ?? [];
     constructor() {
       super(options);
-      setupReactivePropsForAttributes<AttrDefinitions>(this, options);
+      setupReactivePropsForAttributes<AttrDefinitions, PropDefinitions>(this, options);
+      setupReactiveProps<AttrDefinitions, PropDefinitions>(this, options);
     }
   };
   customElements.define(options.name, Element);
-  return Element as ElementConstructor<AttrDefinitions>;
+  return Element as ElementConstructor<AttrDefinitions, PropDefinitions>;
 }
 
-export function setupReactivePropsForAttributes<
+function setupReactivePropsForAttributes<
   AttrDefinitions extends AttrDefinition[],
->(element: SRayElement<AttrDefinitions>, options: ComponentOptions<AttrDefinitions>) {
+  PropDefinitions extends PropDefinition[],
+>(element: SRayElement<AttrDefinitions, PropDefinitions>, options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
   const { attrs } = options;
   if (!attrs) return;
 
@@ -152,6 +179,28 @@ export function setupReactivePropsForAttributes<
           return true;
         }
         element.setAttribute(attr.name, String(value));
+        return true;
+      },
+    });
+  });
+}
+
+function setupReactiveProps<
+  AttrDefinitions extends AttrDefinition[],
+  PropDefinitions extends PropDefinition[],
+>(element: SRayElement<AttrDefinitions, PropDefinitions>, options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
+  const { props } = options;
+  if (!props) return;
+
+  props.forEach(prop => {
+    const innerValue = ref<PropDefinition['default']>(prop.default);
+    Object.defineProperty(element, prop.name, {
+      get() {
+        return innerValue.value;
+      },
+      set(value) {
+        if (value === innerValue.value) return;
+        innerValue.value = value;
         return true;
       },
     });

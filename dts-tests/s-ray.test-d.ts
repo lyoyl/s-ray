@@ -5,6 +5,7 @@ import {
   defineBooleanAttr,
   defineElement,
   defineNumberAttr,
+  defineProperty,
   defineStringAttr,
   html,
 } from '@lyoyl/s-ray';
@@ -26,10 +27,21 @@ const MyApp = defineElement({
     defineBooleanAttr('disabled', false),
     defineStringAttr('my-another-attr', 'default'),
   ] as const, // We have to use `as const` to prevent TypeScript from widening the type of the array
+  props: [
+    defineProperty('myProp'),
+    defineProperty('myAttr', 10),
+    defineProperty('myAnotherAttr', 'default'),
+    defineProperty('obj', { a: 1 }),
+  ] as const,
   setup(hostElement) {
     expectType<boolean>(hostElement.disabled);
     expectType<number>(hostElement.myAttr);
     expectType<string>(hostElement.myAnotherAttr);
+    // props
+    expectType<any>(hostElement.myProp);
+    expectType<number>(hostElement.myAttr);
+    expectType<string>(hostElement.myAnotherAttr);
+    expectType<{ a: number }>(hostElement.obj);
 
     return {
       template: html``,
@@ -46,3 +58,8 @@ declare const myApp2: InstanceType<typeof MyApp>;
 expectType<boolean>(myApp2.disabled);
 expectType<number>(myApp2.myAttr);
 expectType<string>(myApp2.myAnotherAttr);
+// props
+expectType<any>(myApp.myProp);
+expectType<number>(myApp.myAttr);
+expectType<string>(myApp.myAnotherAttr);
+expectType<{ a: number }>(myApp.obj);
