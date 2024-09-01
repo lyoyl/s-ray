@@ -42,9 +42,20 @@ export class SRayElement<
 
   #attrs: Record<string, AttrDefinition> = {};
 
+  #connectedCbs: Set<CallableFunction> = new Set();
+  #disconnectedCbs: Set<CallableFunction> = new Set();
+
   constructor(public options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
     super();
     this.attachShadow({ mode: 'open' });
+  }
+
+  addConnectedCallback(cb: CallableFunction) {
+    this.#connectedCbs.add(cb);
+  }
+
+  addDisconnectedCallback(cb: CallableFunction) {
+    this.#disconnectedCbs.add(cb);
   }
 
   connectedCallback<
@@ -59,11 +70,16 @@ export class SRayElement<
     });
     this.#setupResult = this.options.setup(this);
     this.#setupResult.template.mountTo(this.shadowRoot!);
+    this.#connectedCbs.forEach(cb => cb());
     recoverCurrentInstance();
   }
 
   disconnectedCallback() {
     this.#cleanups.forEach(cleanup => cleanup());
+    this.#disconnectedCbs.forEach(cb => cb());
+    this.#cleanups.clear();
+    this.#connectedCbs.clear();
+    this.#disconnectedCbs.clear();
   }
 
   attributeChangedCallback<

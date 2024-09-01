@@ -1,4 +1,14 @@
-import { defineBooleanAttr, defineElement, defineNumberAttr, defineProperty, html, ref, watch } from '../src/index.js';
+import {
+  defineBooleanAttr,
+  defineElement,
+  defineNumberAttr,
+  defineProperty,
+  html,
+  onConnected,
+  onDisconnected,
+  ref,
+  watch,
+} from '../src/index.js';
 
 const disabled = defineBooleanAttr('disabled', false);
 const myAttr = defineNumberAttr('my-attr', 0);
@@ -20,6 +30,14 @@ const MyApp = defineElement({
     // hostElement.myAttr = 12;
     hostElement.myProp;
     console.log('hostElement.myProp', hostElement.myProp);
+
+    onConnected(() => {
+      console.log('connected');
+    });
+
+    onDisconnected(() => {
+      console.log('disconnected');
+    });
 
     return {
       template: html`

@@ -80,7 +80,10 @@ export type ExtractPropertiesFromPropDefinition<PropDefinition> = PropDefinition
 } : never : never;
 
 // @public (undocumented)
-export type ExtractPropertiesFromPropDefinitions<PropDefinitions> = PropDefinitions extends [infer PropDefinition, ...infer Rest] ? ExtractPropertiesFromPropDefinition<PropDefinition> & ExtractPropertiesFromPropDefinitions<Rest> : {};
+export type ExtractPropertiesFromPropDefinitions<PropDefinitions> = PropDefinitions extends [
+infer PropDefinition,
+...infer Rest
+] ? ExtractPropertiesFromPropDefinition<PropDefinition> & ExtractPropertiesFromPropDefinitions<Rest> : {};
 
 // @public (undocumented)
 export type ExtractPropertyFromAttrDefinition<AttrD> = AttrD extends AttrDefinition<infer N, infer T, infer D, infer P> ? P extends string ? {
@@ -103,6 +106,12 @@ export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer
 
 // @public (undocumented)
 export function nextTick(): Promise<void>;
+
+// @public (undocumented)
+export function onConnected(cb: CallableFunction): void;
+
+// @public (undocumented)
+export function onDisconnected(cb: CallableFunction): void;
 
 // @public (undocumented)
 export type OnInvalidateFn = (cb: CallableFunction) => void;
@@ -152,6 +161,10 @@ export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitio
     constructor(options: ComponentOptions<AttrDefinitions, PropDefinitions>);
     // (undocumented)
     [key: string]: any;
+    // (undocumented)
+    addConnectedCallback(cb: CallableFunction): void;
+    // (undocumented)
+    addDisconnectedCallback(cb: CallableFunction): void;
     // (undocumented)
     attributeChangedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>, name: string, oldValue: string | null, newValue: string | null): void;
     // (undocumented)
