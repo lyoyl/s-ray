@@ -1,4 +1,4 @@
-import { defineBooleanAttr, defineNumberAttr } from '../src/defineElement.js';
+import { defineBooleanAttr, defineNumberAttr } from '../src/defineAttributes.js';
 import { defineElement, html, ref, watch } from '../src/index.js';
 
 const disabled = defineBooleanAttr('disabled', false);
