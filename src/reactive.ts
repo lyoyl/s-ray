@@ -1,16 +1,6 @@
 import { currentInstance } from './defineElement.js';
 import { Priority, queueTask } from './scheduler.js';
 
-export let currentTarget: Target | null = null;
-export function setCurrentTarget(target: Target | null) {
-  currentTarget = target;
-}
-
-export let currentSpecifier: string | null = null;
-export function setCurrentSpecifier(specifier: string | null) {
-  currentSpecifier = specifier;
-}
-
 /**
  * For the relationship between the template and the ref:
  * - the specifier is the dynamic part of the template
@@ -20,11 +10,26 @@ export function setCurrentSpecifier(specifier: string | null) {
  * - We artificially create a target and a specifier
  */
 type Specifier = string;
-type Specifiers = Set<Specifier>;
 type Target = {
   update(specifier: string): any,
   isInUse: boolean,
 };
+interface ReactiveContext {
+  target?: Target;
+  specifier?: Specifier;
+}
+
+const reactiveContextStack: ReactiveContext[] = [];
+
+export function pushReactiveContextStack(ctx: ReactiveContext) {
+  reactiveContextStack.push(ctx);
+}
+
+export function popReactiveContextStack() {
+  reactiveContextStack.pop();
+}
+
+type Specifiers = Set<Specifier>;
 type Deps = Map<Target, Specifiers>;
 
 /**
@@ -38,6 +43,7 @@ export class Ref<T = unknown> {
   }
 
   get value() {
+    const { target: currentTarget, specifier: currentSpecifier } = reactiveContextStack.at(-1) || {};
     if (currentTarget && currentSpecifier) {
       let deps = this.#deps.get(currentTarget);
       if (!deps) {
@@ -64,6 +70,8 @@ export class Ref<T = unknown> {
   }
 }
 
+let uniqueSpecifierId = 0;
+
 /**
  * @public
  */
@@ -71,7 +79,44 @@ export function ref<T = unknown>(value: T) {
   return new Ref<T>(value);
 }
 
-let uniqueSpecifierId = 0;
+/**
+ * @public
+ */
+export function computed<T>(getter: () => T) {
+  const signal = ref(0);
+
+  let isDirty = true;
+  let innerValue: T;
+  const specifier = `_computed_${uniqueSpecifierId++}_`;
+  const target: Target = {
+    update(_specifier: string) {
+      isDirty = true;
+      signal.value++;
+    },
+    isInUse: true,
+  };
+
+  currentInstance?.registerCleanup(() => target.isInUse = false);
+
+  const reactiveContext: ReactiveContext = {
+    target,
+    specifier,
+  };
+
+  return {
+    get value() {
+      signal.value; // trigger the access
+      if (!isDirty) {
+        return innerValue;
+      }
+      pushReactiveContextStack(reactiveContext);
+      isDirty = false;
+      innerValue = getter();
+      popReactiveContextStack();
+      return innerValue;
+    },
+  };
+}
 
 /**
  * @public
@@ -81,7 +126,7 @@ export type UnwatchFn = () => void;
 /**
  * @public
  */
-export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
+export type WatchCallback<V> = (newValue: V, oldValue: V | null, onInvalidate: OnInvalidateFn) => void;
 
 /**
  * @public
@@ -91,20 +136,28 @@ export type OnInvalidateFn = (cb: CallableFunction) => void;
 /**
  * @public
  */
+export interface WatchOptions {
+  priority?: Priority;
+}
+
+/**
+ * @public
+ */
 export function watch<
   T extends Ref<any>,
   V = T extends Ref<infer R> ? R : never,
->(ref: T, callback: WatchCallback<V>): UnwatchFn;
+>(ref: T, callback: WatchCallback<V>, options?: WatchOptions): UnwatchFn;
 /**
  * @public
  */
 export function watch<
   Getter extends (...args: any[]) => any,
   R = ReturnType<Getter>,
->(getter: Getter, callback: WatchCallback<R>): UnwatchFn;
+>(getter: Getter, callback: WatchCallback<R>, options?: WatchOptions): UnwatchFn;
 
-// TODO: support specify the priority of the watch callback
-export function watch(getterOrRef: any, callback: any) {
+export function watch(getterOrRef: any, callback: any, options?: WatchOptions) {
+  const { priority = Priority.Low } = options || {};
+
   const isRef = getterOrRef instanceof Ref;
   const getter = isRef ? () => getterOrRef.value : getterOrRef;
   let isFirstRun = true;
@@ -115,24 +168,25 @@ export function watch(getterOrRef: any, callback: any) {
   }
 
   const specifier = `_watcher_${uniqueSpecifierId++}_`;
+
   const taskRunner = () => {
-    setCurrentTarget(target);
-    setCurrentSpecifier(specifier);
+    pushReactiveContextStack({
+      target,
+      specifier,
+    });
     const value = getter();
-    setCurrentTarget(null);
-    setCurrentSpecifier(null);
+    popReactiveContextStack();
     if (invalidateFn) {
       invalidateFn();
     }
-
-    !isFirstRun && callback(value, oldValue, onInvalidate);
+    (!isFirstRun || priority === Priority.Immediate) && callback(value, oldValue, onInvalidate);
     oldValue = value;
     isFirstRun = false;
   };
 
   const target: Target = {
     update(_specifier: string) {
-      queueTask(taskRunner, Priority.Low);
+      queueTask(taskRunner, priority);
     },
     isInUse: true,
   };

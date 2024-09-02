@@ -1,5 +1,5 @@
 import { DomRef, isDomRef } from './domRef.js';
-import { setCurrentSpecifier, setCurrentTarget } from './reactive.js';
+import { popReactiveContextStack, pushReactiveContextStack } from './reactive.js';
 import { queueTask } from './scheduler.js';
 import { trustedTypePolicy } from './trustedType.js';
 import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
@@ -651,11 +651,12 @@ export class Template {
   };
 
   #runGetter(getter: FunctionInterpolator, dynamicPartSpecifier: string) {
-    setCurrentTarget(this);
-    setCurrentSpecifier(dynamicPartSpecifier);
+    pushReactiveContextStack({
+      target: this,
+      specifier: dynamicPartSpecifier,
+    });
     const value = getter();
-    setCurrentSpecifier(null);
-    setCurrentTarget(null);
+    popReactiveContextStack();
     return value;
   }
 }

@@ -29,6 +29,11 @@ export interface ComponentOptions<AttrDefinitions extends AttrDefinition[], Prop
 }
 
 // @public (undocumented)
+export function computed<T>(getter: () => T): {
+    readonly value: T;
+};
+
+// @public (undocumented)
 export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;
 
 // @public (undocumented)
@@ -213,14 +218,16 @@ export const unsafeHtml: (strings: TemplateStringsArray, ...values: unknown[]) =
 // @public (undocumented)
 export type UnwatchFn = () => void;
 
+// Warning: (ae-forgotten-export) The symbol "WatchOptions" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export function watch<T extends Ref<any>, V = T extends Ref<infer R> ? R : never>(ref: T, callback: WatchCallback<V>): UnwatchFn;
+export function watch<T extends Ref<any>, V = T extends Ref<infer R> ? R : never>(ref: T, callback: WatchCallback<V>, options?: WatchOptions): UnwatchFn;
 
 // @public (undocumented)
-export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Getter>>(getter: Getter, callback: WatchCallback<R>): UnwatchFn;
+export function watch<Getter extends (...args: any[]) => any, R = ReturnType<Getter>>(getter: Getter, callback: WatchCallback<R>, options?: WatchOptions): UnwatchFn;
 
 // @public (undocumented)
-export type WatchCallback<V> = (oldValue: V | null, newValue: V, onInvalidate: OnInvalidateFn) => void;
+export type WatchCallback<V> = (newValue: V, oldValue: V | null, onInvalidate: OnInvalidateFn) => void;
 
 // (No @packageDocumentation comment for this package)
 

@@ -2,12 +2,15 @@ import { expectType } from 'tsd';
 
 import {
   AttrDefinition,
+  computed,
   defineBooleanAttr,
   defineElement,
   defineNumberAttr,
   defineProperty,
   defineStringAttr,
   html,
+  ref,
+  watch,
 } from '@lyoyl/s-ray';
 
 expectType<AttrDefinition<'disabled', BooleanConstructor, boolean, 'disabled'>>(defineBooleanAttr('disabled', false));
@@ -63,3 +66,21 @@ expectType<any>(myApp.myProp);
 expectType<number>(myApp.myAttr);
 expectType<string>(myApp.myAnotherAttr);
 expectType<{ a: number }>(myApp.obj);
+
+// reactivity API
+const counter = ref(0);
+expectType<number>(counter.value);
+const double = computed(() => counter.value * 2);
+expectType<number>(double.value);
+
+watch(counter, (newValue, oldValue, onInvalidate) => {
+  expectType<number>(newValue);
+  expectType<number | null>(oldValue);
+  expectType<(cb: CallableFunction) => void>(onInvalidate);
+});
+
+watch(() => double.value, (newValue, oldValue, onInvalidate) => {
+  expectType<number>(newValue);
+  expectType<number | null>(oldValue);
+  expectType<(cb: CallableFunction) => void>(onInvalidate);
+});

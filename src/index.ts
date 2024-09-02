@@ -26,6 +26,6 @@ export {
 export { domRef } from './domRef.js';
 export { DynamicInterpolators, Template, html, unsafeHtml } from './html.js';
 export { onConnected, onDisconnected } from './lifecycle.js';
-export { OnInvalidateFn, Ref, UnwatchFn, WatchCallback, ref, watch } from './reactive.js';
+export { OnInvalidateFn, Ref, UnwatchFn, WatchCallback, computed, ref, watch } from './reactive.js';
 export { Priority, nextTick, queueTask } from './scheduler.js';
 export { HyphenToCamelCase } from './utils.js';

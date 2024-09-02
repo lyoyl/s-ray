@@ -3,7 +3,7 @@ import { fake } from 'sinon';
 
 import { domRef } from './domRef.js';
 import { html } from './html.js';
-import { ref, watch } from './reactive.js';
+import { computed, ref, watch } from './reactive.js';
 import { nextTick } from './scheduler.js';
 
 describe('Reactive rendering', () => {
@@ -268,5 +268,20 @@ describe('Reactive rendering', () => {
     counter.value = 100;
     await nextTick();
     expect(cb.callCount).to.equal(1);
+  });
+
+  it('render a computed value', async () => {
+    const counter = ref(0);
+    const double = computed(() => counter.value * 2);
+    const triple = computed(() => double.value * 3);
+    const template = html`<div>${() => triple.value}</div>`;
+
+    const container = document.createElement('div');
+    template.mountTo(container);
+    expect(container.querySelector('div')!.textContent).to.equal('0');
+
+    counter.value = 1;
+    await nextTick();
+    expect(container.querySelector('div')!.textContent).to.equal('6');
   });
 });

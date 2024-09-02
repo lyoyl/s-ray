@@ -1,4 +1,6 @@
+import { debug } from 'console';
 import {
+  computed,
   defineBooleanAttr,
   defineElement,
   defineNumberAttr,
@@ -21,9 +23,20 @@ const MyApp = defineElement({
   props: [myProp] as const,
   setup(hostElement) {
     const counter = ref(0);
+    const double = computed(() => counter.value * 2);
+
+    watch(() => double.value, () => {
+      console.log('double changed');
+    });
+
+    counter.value = 1;
 
     watch(counter, (newValue, oldValue) => {
       console.log('counter changed from', oldValue, 'to', newValue);
+    });
+
+    watch(() => double.value, (newValue, oldValue) => {
+      console.log('double changed from', oldValue, 'to', newValue);
     });
 
     // hostElement.disabled = true;
@@ -44,7 +57,7 @@ const MyApp = defineElement({
         <div>
           <button @click=${() => counter.value++}>Increment</button>
           <span :abc=${() => counter.value}>${() => counter.value}</span>
-          <input type='checkbox' checked name=cheese disabled="false"> 
+          <h3>double: ${() => double.value}</h3>
         </div>
       `,
     };
