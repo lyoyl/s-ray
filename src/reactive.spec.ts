@@ -192,4 +192,26 @@ describe('Reactive', () => {
     expect(cb.secondCall.args[0]).to.equal(12);
     expect(cb.secondCall.args[1]).to.equal(6);
   });
+
+  it('watch a computed directly', async () => {
+    const counter = ref(0);
+    const double = computed(() => counter.value * 2);
+
+    const cb = fake();
+    watch(double, cb);
+
+    expect(cb.callCount).to.equal(0);
+
+    counter.value = 1;
+    await nextTick();
+    expect(cb.callCount).to.equal(1);
+    expect(cb.firstCall.args[0]).to.equal(2);
+    expect(cb.firstCall.args[1]).to.equal(0);
+
+    counter.value = 2;
+    await nextTick();
+    expect(cb.callCount).to.equal(2);
+    expect(cb.secondCall.args[0]).to.equal(4);
+    expect(cb.secondCall.args[1]).to.equal(2);
+  });
 });

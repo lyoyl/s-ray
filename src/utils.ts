@@ -35,3 +35,7 @@ export type HyphenToCamelCase<S extends string> = S extends `${infer P1}-${infer
 export function hypheToCamel<S extends string>(str: S): HyphenToCamelCase<S> {
   return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()) as HyphenToCamelCase<S>;
 }
+
+export function isObject(value: any): value is Record<string, any> {
+  return value !== null && typeof value === 'object';
+}

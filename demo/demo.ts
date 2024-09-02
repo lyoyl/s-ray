@@ -29,13 +29,13 @@ const MyApp = defineElement({
       console.log('double changed');
     });
 
-    counter.value = 1;
+    // counter.value = 1;
 
     watch(counter, (newValue, oldValue) => {
       console.log('counter changed from', oldValue, 'to', newValue);
     });
 
-    watch(() => double.value, (newValue, oldValue) => {
+    watch(double, (newValue, oldValue) => {
       console.log('double changed from', oldValue, 'to', newValue);
     });
 

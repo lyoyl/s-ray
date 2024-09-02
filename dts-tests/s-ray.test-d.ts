@@ -84,3 +84,9 @@ watch(() => double.value, (newValue, oldValue, onInvalidate) => {
   expectType<number | null>(oldValue);
   expectType<(cb: CallableFunction) => void>(onInvalidate);
 });
+// watch on computed ref
+watch(double, (newValue, oldValue, onInvalidate) => {
+  expectType<number>(newValue);
+  expectType<number | null>(oldValue);
+  expectType<(cb: CallableFunction) => void>(onInvalidate);
+});

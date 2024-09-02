@@ -1,5 +1,6 @@
 import { currentInstance } from './defineElement.js';
 import { Priority, queueTask } from './scheduler.js';
+import { isObject } from './utils.js';
 
 /**
  * For the relationship between the template and the ref:
@@ -82,7 +83,19 @@ export function ref<T = unknown>(value: T) {
 /**
  * @public
  */
-export function computed<T>(getter: () => T) {
+export interface ComputedRef<T> {
+  readonly value: T;
+  __isComputed: true;
+}
+
+function isComputed(value: any): value is ComputedRef<any> {
+  return isObject(value) && value.__isComputed;
+}
+
+/**
+ * @public
+ */
+export function computed<T>(getter: () => T): ComputedRef<T> {
   const signal = ref(0);
 
   let isDirty = true;
@@ -115,6 +128,7 @@ export function computed<T>(getter: () => T) {
       popReactiveContextStack();
       return innerValue;
     },
+    __isComputed: true,
   };
 }
 
@@ -144,6 +158,13 @@ export interface WatchOptions {
  * @public
  */
 export function watch<
+  T extends ComputedRef<any>,
+  V = T extends ComputedRef<infer R> ? R : never,
+>(computed: T, callback: WatchCallback<V>, options?: WatchOptions): UnwatchFn;
+/**
+ * @public
+ */
+export function watch<
   T extends Ref<any>,
   V = T extends Ref<infer R> ? R : never,
 >(ref: T, callback: WatchCallback<V>, options?: WatchOptions): UnwatchFn;
@@ -158,7 +179,7 @@ export function watch<
 export function watch(getterOrRef: any, callback: any, options?: WatchOptions) {
   const { priority = Priority.Low } = options || {};
 
-  const isRef = getterOrRef instanceof Ref;
+  const isRef = getterOrRef instanceof Ref || isComputed(getterOrRef);
   const getter = isRef ? () => getterOrRef.value : getterOrRef;
   let isFirstRun = true;
   let oldValue: unknown = null;
