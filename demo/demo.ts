@@ -43,7 +43,7 @@ const MyApp = defineElement({
       template: html`
         <div>
           <button @click=${() => counter.value++}>Increment</button>
-          <span>${() => counter.value}</span>
+          <span :abc=${() => counter.value}>${() => counter.value}</span>
           <input type='checkbox' checked name=cheese disabled="false"> 
         </div>
       `,

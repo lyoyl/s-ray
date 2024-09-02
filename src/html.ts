@@ -8,6 +8,8 @@ export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
 
+type PropSpecifier = ':' | '?';
+
 /**
  * @public
  */
@@ -264,6 +266,11 @@ export class Template {
     if (name.startsWith('@')) {
       this.#parseEvent(attribute);
       return;
+    } else if (
+      name.startsWith(':') ||
+      name.startsWith('?')
+    ) {
+      this.#parsePropertyBinding(attribute);
     } else if (name === 'ref') {
       this.#parseRef(attribute);
       return;
@@ -335,6 +342,51 @@ export class Template {
     fixerArgs.oldValue = newValue;
 
     attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, newValue));
+  };
+
+  #parsePropertyBinding(attribute: Attr) {
+    bindingRE.lastIndex = 0;
+
+    const name = attribute.name;
+    const propSpecifier = name[0] as PropSpecifier;
+    const propName = name.slice(1);
+    const pattern = attribute.value;
+    let m = bindingRE.exec(pattern);
+    if (!m) {
+      if (__DEV__ === 'development') {
+        error(
+          `Failed to parse the property binding, property name is ${propName}, DOM node is: `,
+          attribute.ownerElement,
+        );
+      }
+      return;
+    }
+
+    const ownerElement = attribute.ownerElement!;
+    // remove the attribute
+    attribute.ownerElement?.removeAttribute(name);
+    const dynamicPartSpecifier = m[0];
+
+    const propFixer = this.#propertyFixer.bind(null, ownerElement, dynamicPartSpecifier, propSpecifier, propName);
+    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, propFixer);
+    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, propFixer);
+  }
+
+  #propertyFixer = (
+    ownerElement: Element,
+    dynamicPartSpecifier: string,
+    propSpecifier: PropSpecifier,
+    propName: string,
+  ) => {
+    const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+    if (!isFuncInterpolator(getter)) {
+      if (__DEV__ === 'development') {
+        error(`You must provide a function as the property value interpolator, but you provided:`, getter);
+      }
+      return;
+    }
+    const newValue = this.#runGetter(getter, dynamicPartSpecifier);
+    (ownerElement as any)[propName] = propSpecifier === '?' ? newValue !== false : newValue;
   };
 
   #parseEvent(attribute: Attr) {

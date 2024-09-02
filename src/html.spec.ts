@@ -442,4 +442,36 @@ describe('The html function', () => {
     unsafe.mountTo(container);
     expect(container.querySelector('h1')!.textContent).to.equal('title');
   });
+
+  it('use the colon to declare a property binding', async () => {
+    let counter = 1;
+    const template = html`<div :abc=${() => counter}></div>`;
+    const container = document.createElement('div');
+    template.mountTo(container);
+    expect((container.querySelector('div') as HTMLDivElement & { abc: number })!.abc).to.equal(1);
+    counter = 2;
+    template.update();
+    await nextTick();
+    expect((container.querySelector('div') as HTMLDivElement & { abc: number })!.abc).to.equal(2);
+  });
+
+  it('use the question mark to declare a boolean property bingding', async () => {
+    let counter: any = 1;
+    const template = html`<div ?abc=${() => counter}></div>`;
+    const container = document.createElement('div');
+    template.mountTo(container);
+    expect((container.querySelector('div') as HTMLDivElement & { abc: boolean })!.abc).to.equal(true);
+    counter = '';
+    template.update();
+    await nextTick();
+    expect((container.querySelector('div') as HTMLDivElement & { abc: number })!.abc).to.equal(true);
+    counter = 0;
+    template.update();
+    await nextTick();
+    expect((container.querySelector('div') as HTMLDivElement & { abc: number })!.abc).to.equal(true);
+    counter = false;
+    template.update();
+    await nextTick();
+    expect((container.querySelector('div') as HTMLDivElement & { abc: number })!.abc).to.equal(false);
+  });
 });
