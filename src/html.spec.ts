@@ -58,7 +58,7 @@ describe('The html function', () => {
     expect(child1.isInUse).to.be.false;
     expect(child1.parent).to.be.null;
     expect(child1.children.size).to.equal(0);
-    expect(document.body.innerHTML).to.equal('<div><!--anchor--></div>'); // TODO: why this anchor is not removed?
+    expect(document.body.innerHTML).to.equal('<div><!--anchor--></div>'); // TODO: why this anchor is not removed? Should it be removed? May not.
   });
 
   it('should collect dynamic parts', () => {

@@ -99,7 +99,6 @@ export class SRayElement<
     switch (definition.type) {
       case Boolean:
         // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes
-        // TODO: we still need a way to allow user to update the boolean attributes conveniently in the template
         this[definition.propertyName as K] = (newValue !== null) as V;
         break;
       case Number:
