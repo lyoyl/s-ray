@@ -174,6 +174,8 @@ export interface SetupResult {
 
 // @public (undocumented)
 export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> extends HTMLElement {
+    // (undocumented)
+    $emit(event: string, detail?: any): void;
     constructor(options: ComponentOptions<AttrDefinitions, PropDefinitions>);
     // (undocumented)
     [key: string]: any;
@@ -187,6 +189,8 @@ export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitio
     connectedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>): void;
     // (undocumented)
     disconnectedCallback(): void;
+    // (undocumented)
+    internals: ElementInternals;
     // (undocumented)
     options: ComponentOptions<AttrDefinitions, PropDefinitions>;
     // (undocumented)

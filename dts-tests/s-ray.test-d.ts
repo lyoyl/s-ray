@@ -46,6 +46,9 @@ const MyApp = defineElement({
     expectType<string>(hostElement.myAnotherAttr);
     expectType<{ a: number }>(hostElement.obj);
 
+    // ElementInternals
+    expectType<ElementInternals>(hostElement.internals);
+
     return {
       template: html``,
     };

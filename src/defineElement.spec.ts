@@ -67,4 +67,22 @@ describe('defineElement', () => {
     document.body.appendChild(myEl);
     expect(hostEl).to.equal(myEl);
   });
+
+  it('$emit()', async () => {
+    const cb = fake();
+
+    const MyElement = defineElement({
+      name: 'my-element1',
+      setup() {
+        return {
+          template: html``,
+        };
+      },
+    });
+
+    const el = document.createElement('my-element1') as InstanceType<typeof MyElement>;
+    el.addEventListener('my-event', cb);
+    el.$emit('my-event');
+    expect(cb.callCount).to.equal(1);
+  });
 });

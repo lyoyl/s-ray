@@ -45,6 +45,8 @@ export class SRayElement<
   #connectedCbs: Set<CallableFunction> = new Set();
   #disconnectedCbs: Set<CallableFunction> = new Set();
 
+  internals: ElementInternals = this.attachInternals();
+
   constructor(public options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
     super();
     this.attachShadow({ mode: 'open' });
@@ -111,6 +113,10 @@ export class SRayElement<
   registerCleanup(cleanup: CallableFunction) {
     this.#cleanups.add(cleanup);
     this.#setupResult?.template.unmount();
+  }
+
+  $emit(event: string, detail: any = null) {
+    this.dispatchEvent(new CustomEvent(event, { detail }));
   }
 }
 

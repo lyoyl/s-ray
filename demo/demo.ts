@@ -53,6 +53,8 @@ const MyApp = defineElement({
       console.log('double changed from', oldValue, 'to', newValue);
     });
 
+    console.log(hostElement.internals);
+
     // hostElement.disabled = true;
     // hostElement.myAttr = 12;
     hostElement.myProp;
