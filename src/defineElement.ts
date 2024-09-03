@@ -48,6 +48,9 @@ export class SRayElement<
   constructor(public options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
     super();
     this.attachShadow({ mode: 'open' });
+    options.styles?.forEach(style => {
+      this.shadowRoot!.adoptedStyleSheets.push(style);
+    });
   }
 
   addConnectedCallback(cb: CallableFunction) {
@@ -122,6 +125,7 @@ export interface ComponentOptions<
   name: string;
   attrs?: AttrDefinitions;
   props?: PropDefinitions;
+  styles?: CSSStyleSheet[];
   setup: (hostElement: ElementInstance<AttrDefinitions, PropDefinitions>) => SetupResult;
 }
 

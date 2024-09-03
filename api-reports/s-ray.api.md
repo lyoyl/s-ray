@@ -26,6 +26,8 @@ export interface ComponentOptions<AttrDefinitions extends AttrDefinition[], Prop
     props?: PropDefinitions;
     // (undocumented)
     setup: (hostElement: ElementInstance<AttrDefinitions, PropDefinitions>) => SetupResult;
+    // (undocumented)
+    styles?: CSSStyleSheet[];
 }
 
 // @public (undocumented)
@@ -38,6 +40,9 @@ export interface ComputedRef<T> {
     // (undocumented)
     readonly value: T;
 }
+
+// @public (undocumented)
+export function css(strings: TemplateStringsArray, ...values: unknown[]): CSSStyleSheet;
 
 // @public (undocumented)
 export function defineBooleanAttr<S extends string>(name: S, defaultValue: boolean): AttrDefinition<S, BooleanConstructor>;

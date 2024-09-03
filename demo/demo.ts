@@ -1,6 +1,7 @@
 import { debug } from 'console';
 import {
   computed,
+  css,
   defineBooleanAttr,
   defineElement,
   defineNumberAttr,
@@ -17,10 +18,23 @@ const myAttr = defineNumberAttr('my-attr', 0);
 
 const myProp = defineProperty('myProp', 10);
 
+const style1 = css`
+  button {
+    color: red;
+  }
+`;
+
+const style2 = css`
+  h3 {
+    color: blue;
+  }
+`;
+
 const MyApp = defineElement({
   name: 'my-app',
   attrs: [disabled, myAttr] as const,
   props: [myProp] as const,
+  styles: [style1, style2],
   setup(hostElement) {
     const counter = ref(0);
     const double = computed(() => counter.value * 2);
