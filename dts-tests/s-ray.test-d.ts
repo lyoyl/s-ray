@@ -2,6 +2,7 @@ import { expectType } from 'tsd';
 
 import {
   AttrDefinition,
+  Template,
   computed,
   defineBooleanAttr,
   defineElement,
@@ -48,6 +49,11 @@ const MyApp = defineElement({
 
     // ElementInternals
     expectType<ElementInternals>(hostElement.internals);
+
+    const tpl1 = html`<div></div>`;
+    expectType<Template>(tpl1);
+    const tpl2 = html('key')`<div></div>`;
+    expectType<Template>(tpl2);
 
     return {
       template: html``,

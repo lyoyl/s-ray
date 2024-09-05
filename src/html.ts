@@ -111,6 +111,9 @@ export class Template {
   // The fixers that are needed to be called during unmounting stage.
   #dpToUnmountingFixerMap: Map<string, Fixer> = new Map();
 
+  #selfStartAnchor!: Comment;
+  #selfEndAnchor!: Comment;
+
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
     this.#originalDoc = originalDoc;
     this.#dynamicPartToGetterMap = dynamicPartToGetterMap;
@@ -121,6 +124,10 @@ export class Template {
       return;
     }
     this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
+    this.#selfStartAnchor = createComment(__DEV__ ? 'self-start-anchor' : '');
+    this.#selfEndAnchor = createComment(__DEV__ ? 'self-end-anchor' : '');
+    this.#doc.prepend(this.#selfStartAnchor);
+    this.#doc.append(this.#selfEndAnchor);
     this.#rootNodes = Array.from(this.#doc.childNodes);
     this.#parseTemplate(this.#doc);
   }
@@ -196,6 +203,24 @@ export class Template {
     }
   }
 
+  moveToBefore(tpl: Template) {
+    if (!this.isInUse) {
+      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+    }
+    this.#rootNodes.forEach(node => {
+      tpl.#selfStartAnchor.parentNode!.insertBefore(node, tpl.#selfStartAnchor);
+    });
+  }
+
+  moveToAfter(tpl: Template) {
+    if (!this.isInUse) {
+      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+    }
+    this.#rootNodes.forEach(node => {
+      tpl.#selfEndAnchor.parentNode!.append(node, tpl.#selfEndAnchor);
+    });
+  }
+
   /**
    * @public
    */
@@ -214,6 +239,10 @@ export class Template {
    */
   sameAs(other: Template) {
     return this.#originalDoc === other.#originalDoc;
+  }
+
+  strictSameAs(other: Template) {
+    return this.sameAs(other) && this.#key && other.#key && this.#key === other.#key;
   }
 
   // This is useful in DOM updates during re-rendering.
@@ -614,39 +643,75 @@ export class Template {
         fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
       }
     } else {
-      // TODO: using keyed diff algorithm instead
       const oldList = previous as Template[];
       const newList = current as Template[];
-      const oldLen = oldList.length;
-      const newLen = newList.length;
-      let idx = 0;
 
-      while (idx < oldLen && idx < newLen) {
-        const oldTpl = oldList[idx];
-        const newTpl = newList[idx];
-        if (oldTpl.sameAs(newTpl)) {
-          oldTpl.adoptGettersFrom(newTpl);
-          oldTpl.update();
+      let oldStartIdx = 0;
+      let oldEndIdx = oldList.length - 1;
+      let newStartIdx = 0;
+      let newEndIdx = newList.length - 1;
+
+      let oldStartTpl = oldList[oldStartIdx];
+      let oldEndTpl = oldList[oldEndIdx];
+      let newStartTpl = newList[newStartIdx];
+      let newEndTpl = newList[newEndIdx];
+
+      while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
+        if (!oldStartTpl) {
+          oldStartTpl = oldList[++oldStartIdx];
+        } else if (!oldEndTpl) {
+          oldEndTpl = oldList[--oldEndIdx];
+        } else if (oldStartTpl.strictSameAs(newStartTpl)) {
+          oldStartTpl.adoptGettersFrom(newStartTpl);
+          oldStartTpl.update();
+          oldStartTpl = oldList[++oldStartIdx];
+          newStartTpl = newList[++newStartIdx];
+        } else if (oldEndTpl.strictSameAs(newEndTpl)) {
+          oldEndTpl.adoptGettersFrom(newEndTpl);
+          oldEndTpl.update();
+          oldEndTpl = oldList[--oldEndIdx];
+          newEndTpl = newList[--newEndIdx];
+        } else if (oldStartTpl.strictSameAs(newEndTpl)) {
+          oldStartTpl.moveToAfter(oldEndTpl);
+          oldStartTpl.adoptGettersFrom(newEndTpl);
+          oldStartTpl.update();
+          oldStartTpl = oldList[++oldStartIdx];
+          newEndTpl = newList[--newEndIdx];
+        } else if (oldEndTpl.strictSameAs(newStartTpl)) {
+          oldEndTpl.moveToBefore(oldStartTpl);
+          oldEndTpl.adoptGettersFrom(newStartTpl);
+          oldEndTpl.update();
+          oldEndTpl = oldList[--oldEndIdx];
+          newStartTpl = newList[++newStartIdx];
         } else {
-          oldTpl.unmount();
-          oldList[idx] = newTpl.cloneIfInUse();
-          oldList[idx].mountTo(this, fixerArgs.anchorNode);
+          const idxInOld = oldList.findIndex(tpl => tpl.strictSameAs(newStartTpl));
+          if (idxInOld > 0) {
+            const tplToBeMoved = oldList[idxInOld];
+            tplToBeMoved.moveToBefore(oldStartTpl);
+            tplToBeMoved.adoptGettersFrom(newStartTpl);
+            tplToBeMoved.update();
+            oldList[idxInOld] = undefined as any;
+            newStartTpl = newList[++newStartIdx];
+          } else {
+            const newTpl = newStartTpl.cloneIfInUse();
+            newTpl.mountTo(this, oldStartTpl.#selfStartAnchor);
+            newStartTpl = newList[++newStartIdx];
+          }
         }
-        idx++;
       }
 
-      if (oldLen > newLen) {
-        oldList.slice(idx).forEach(tpl => tpl.unmount());
-        oldList.splice(idx);
-      } else if (oldLen < newLen) {
-        newList.slice(idx).forEach(tpl => {
-          const newTpl = tpl.cloneIfInUse();
-          oldList.push(newTpl);
-          newTpl.mountTo(this, fixerArgs.anchorNode);
-        });
+      if (oldEndIdx < oldStartIdx && newEndIdx >= newStartIdx) {
+        for (let i = newStartIdx; i <= newEndIdx; i++) {
+          const newTpl = newList[i].cloneIfInUse();
+          newTpl.mountTo(this, oldStartTpl ? oldStartTpl.#selfStartAnchor : fixerArgs.anchorNode);
+        }
+      } else if (newEndIdx < newStartIdx && oldEndIdx >= oldStartIdx) {
+        for (let i = oldStartIdx; i <= oldEndIdx; i++) {
+          oldList[i].unmount();
+        }
       }
 
-      fixerArgs.dynamicNode = oldList;
+      fixerArgs.dynamicNode = newList;
     }
   };
 

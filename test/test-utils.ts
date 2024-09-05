@@ -14,3 +14,10 @@ export function getMiddleOfElement(element: HTMLElement, arbitraryOffset = 0) {
     y: Math.floor(y + offsetY),
   };
 }
+
+export function removeAnchors(html: string) {
+  return html.replaceAll('<!--self-start-anchor-->', '').replaceAll('<!--self-end-anchor-->', '').replaceAll(
+    '<!--anchor-->',
+    '',
+  );
+}

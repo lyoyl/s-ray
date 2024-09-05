@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { fake } from 'sinon';
+import { removeAnchors } from '../test/test-utils.js';
 import { domRef } from './domRef.js';
 import { html, unsafeHtml } from './html.js';
 import { nextTick } from './scheduler.js';
@@ -47,7 +48,7 @@ describe('The html function', () => {
     expect(child2.parent).to.equal(root);
     expect(child1.children.size).to.equal(0);
     expect(child1.parent).to.equal(child2);
-    expect(document.body.innerHTML).to.equal('<div><h1><a></a><!--anchor--></h1><!--anchor--></div>');
+    expect(removeAnchors(document.body.innerHTML)).to.equal('<div><h1><a></a></h1></div>');
 
     // unmount child2, which should also unmount child1
     child2.unmount();
@@ -58,7 +59,7 @@ describe('The html function', () => {
     expect(child1.isInUse).to.be.false;
     expect(child1.parent).to.be.null;
     expect(child1.children.size).to.equal(0);
-    expect(document.body.innerHTML).to.equal('<div><!--anchor--></div>'); // TODO: why this anchor is not removed? Should it be removed? May not.
+    expect(removeAnchors(document.body.innerHTML)).to.equal('<div></div>'); // TODO: why this anchor is not removed? Should it be removed? May not.
   });
 
   it('should collect dynamic parts', () => {
@@ -83,13 +84,13 @@ describe('The html function', () => {
 
     templateA.adoptGettersFrom(templateB);
     templateA.mountTo(document.body);
-    expect(document.body.querySelector('h1')?.outerHTML).to.equal('<h1>2<!--anchor--></h1>');
+    expect(removeAnchors(document.body.querySelector('h1')?.outerHTML!)).to.equal('<h1>2</h1>');
 
     const templateC = html`<h1>${html`<span>123</span>`}</h1>`;
     templateA.adoptGettersFrom(templateC);
     templateA.update();
     await nextTick();
-    expect(document.body.querySelector('h1')?.outerHTML).to.equal('<h1><span>123</span><!--anchor--></h1>');
+    expect(removeAnchors(document.body.querySelector('h1')?.outerHTML!)).to.equal('<h1><span>123</span></h1>');
   });
 
   it('templates with same static pattern should hit the cache, but the dynamic parts shoud be updated', () => {
@@ -180,14 +181,14 @@ describe('The html function', () => {
     const template = html`<div>${funcInterpolator}</div>`;
     const container = document.createElement('div');
     template.mountTo(container);
-    expect(container.querySelector('div')!.outerHTML).to.equal('<div><p>1</p><!--anchor--></div>');
+    expect(removeAnchors(container.querySelector('div')!.outerHTML)).to.equal('<div><p>1</p></div>');
 
     // Can be used multiple times
     const template2 = html`<div>${funcInterpolator} -- ${funcInterpolator}</div>`;
     const container2 = document.createElement('div');
     template2.mountTo(container2);
-    expect(container2.querySelector('div')!.outerHTML).to.equal(
-      '<div><p>1</p><!--anchor--> -- <p>1</p><!--anchor--></div>',
+    expect(removeAnchors(container2.querySelector('div')!.outerHTML)).to.equal(
+      '<div><p>1</p> -- <p>1</p></div>',
     );
   });
 
@@ -414,6 +415,43 @@ describe('The html function', () => {
     expect(container.querySelectorAll('li').length).to.equal(2);
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Price: 100');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Price: 200');
+  });
+
+  it('keyed list rendering', async () => {
+    let data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+    const renderList = () => {
+      return data.map(item => html(item.id)`<li>${() => item.name}</li>`);
+    };
+    const template = html`
+      <ul>
+        ${renderList}
+      </ul>
+    `;
+    const container = document.createElement('div');
+    template.mountTo(container);
+    expect(container.querySelectorAll('li').length).to.equal(3);
+    expect(container.querySelectorAll('li')[0].textContent).to.equal('Alice');
+    expect(container.querySelectorAll('li')[1].textContent).to.equal('Bob');
+    expect(container.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    // Update data
+    data = [
+      { id: 3, name: 'Charlie' },
+      { id: 1, name: 'Alice' },
+      { id: 4, name: 'David' },
+      { id: 5, name: 'David2' },
+    ];
+    template.update();
+    await nextTick();
+    expect(container.querySelectorAll('li').length).to.equal(4);
+    expect(container.querySelectorAll('li')[0].textContent).to.equal('Charlie');
+    expect(container.querySelectorAll('li')[1].textContent).to.equal('Alice');
+    expect(container.querySelectorAll('li')[2].textContent).to.equal('David');
+    expect(container.querySelectorAll('li')[3].textContent).to.equal('David2');
   });
 
   it('custom directive', () => {

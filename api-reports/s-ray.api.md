@@ -216,12 +216,18 @@ export class Template {
     // (undocumented)
     mountTo(parent: Node): void;
     // (undocumented)
+    moveToAfter(tpl: Template): void;
+    // (undocumented)
+    moveToBefore(tpl: Template): void;
+    // (undocumented)
     get originalDoc(): DocumentFragment;
     // (undocumented)
     get parent(): Template | null;
     sameAs(other: Template): boolean;
     // (undocumented)
     setKey(key: TemplateKey): void;
+    // (undocumented)
+    strictSameAs(other: Template): boolean | "" | 0 | null;
     unmount(): void;
     // (undocumented)
     update(dynamicPartSpecifier?: string): void;
