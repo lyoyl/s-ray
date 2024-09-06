@@ -264,7 +264,7 @@ export class Template {
           this.#parseElement(node as Element);
           break;
         case Node.TEXT_NODE:
-          this.#parseText(node as Text);
+          this.#parseChildren(node as Text);
           break;
       }
     });
@@ -506,7 +506,7 @@ export class Template {
     });
   }
 
-  #parseText(text: Text) {
+  #parseChildren(text: Text) {
     bindingRE.lastIndex = 0;
 
     const content = text.nodeValue || '';
@@ -556,7 +556,7 @@ export class Template {
 
     // Process the remaining text node recursively
     if (remainingTextNode) {
-      this.#parseText(remainingTextNode);
+      this.#parseChildren(remainingTextNode);
     }
 
     const fixerArgs = {
@@ -566,12 +566,16 @@ export class Template {
       oldValue: null,
     };
 
-    const textFixer = this.#textFixer.bind(null, fixerArgs);
-    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, textFixer);
-    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, textFixer);
+    const childrenFixer = this.#childrenFixer.bind(null, fixerArgs);
+    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, childrenFixer);
+    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, childrenFixer);
+    // Reset oldValue when unmounting
+    this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
+      fixerArgs.oldValue = null;
+    });
   }
 
-  #textFixer = (fixerArgs: {
+  #childrenFixer = (fixerArgs: {
     dynamicPartSpecifier: string,
     dynamicNode: Text | Template | Template[],
     anchorNode: Comment,
@@ -582,13 +586,7 @@ export class Template {
       ? this.#runGetter(dynamicInterpolator, fixerArgs.dynamicPartSpecifier)
       : dynamicInterpolator;
 
-    const isNotInUsedTemplate = isTemplate(value) && !value.isInUse;
-    if (
-      fixerArgs.oldValue === value &&
-      // Old value and the new value is the same template, but the template is not in use,
-      // which means the template was unmounted before and now we need to mount it.
-      !isNotInUsedTemplate
-    ) {
+    if (fixerArgs.oldValue === value) {
       // No need to update
       return;
     }
