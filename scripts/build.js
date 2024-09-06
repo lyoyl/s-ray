@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { statSync } from 'node:fs';
 
 const buildConfigs = [
   {
@@ -20,7 +21,7 @@ const buildConfigs = [
 ];
 
 for (const config of buildConfigs) {
-  await build({
+  const results = await build({
     entryPoints: ['src/index.ts'],
     target: 'esnext',
     format: config.format,
@@ -28,8 +29,19 @@ for (const config of buildConfigs) {
     minify: !!config.minify,
     sourcemap: true,
     outfile: config.outfile,
+    metafile: true,
     define: {
       __DEV__: config.__DEV__,
     },
+  });
+
+  const fileSizes = [];
+  Object.keys(results.metafile?.outputs).filter(v => !v.endsWith('.map')).forEach((path) => {
+    const stat = statSync(path);
+    const size = stat.size / 1024;
+    fileSizes.push({ path, size });
+  });
+  fileSizes.forEach(({ path, size }) => {
+    console.info(`\t- ${path}:`, `${size.toFixed(2)} KB`);
   });
 }
