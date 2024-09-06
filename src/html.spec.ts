@@ -424,7 +424,12 @@ describe('The html function', () => {
       { id: 3, name: 'Charlie' },
     ];
     const renderList = () => {
-      return data.map(item => html(item.id)`<li>${() => item.name}</li>`);
+      return data.map(item =>
+        html(item.id)`
+        <li>${() => item.name}</li>
+        <input id=${() => `input-${item.id}`} />
+      `
+      );
     };
     const template = html`
       <ul>
@@ -437,6 +442,10 @@ describe('The html function', () => {
     expect(container.querySelectorAll('li')[0].textContent).to.equal('Alice');
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Bob');
     expect(container.querySelectorAll('li')[2].textContent).to.equal('Charlie');
+
+    // Get the input element that it is ID is 2
+    const input = container.querySelector<HTMLInputElement>('#input-2')!;
+    input.value = 'Hello';
 
     // Update data
     data = [
@@ -452,6 +461,9 @@ describe('The html function', () => {
     expect(container.querySelectorAll('li')[1].textContent).to.equal('Alice');
     expect(container.querySelectorAll('li')[2].textContent).to.equal('David');
     expect(container.querySelectorAll('li')[3].textContent).to.equal('David2');
+
+    // The text of the input element with ID 2 should be kept
+    expect(input.value).to.equal('Hello');
   });
 
   it('custom directive', () => {
