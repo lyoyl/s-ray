@@ -11,14 +11,22 @@
       "types": "./dist/s-ray.d.ts",
       "module": "./dist/s-ray-bundler.js",
       "import": "./dist/s-ray-bundler.js",
-      "require": "./dist/s-ray.min.js"
+      "node":  {
+        "production": "./dist/s-ray.min.ssr.js",
+        "development": "./dist/s-ray.ssr.js",
+        "default": "./dist/s-ray.min.ssr.js"
+      }
     }
   },
   "files": [
     "dist/s-ray.js",
     "dist/s-ray.js.map",
+    "dist/s-ray.ssr.js",
+    "dist/s-ray.ssr.js.map",
     "dist/s-ray.min.js",
     "dist/s-ray.min.js.map",
+    "dist/s-ray.min.ssr.js",
+    "dist/s-ray.min.ssr.js.map",
     "dist/s-ray-bundler.js",
     "dist/s-ray-bundler.js.map",
     "dist/s-ray.d.ts",
