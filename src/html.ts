@@ -124,8 +124,8 @@ export class Template {
       return;
     }
     this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
-    this.#selfStartAnchor = createComment(__DEV__ ? 'self-start-anchor' : '');
-    this.#selfEndAnchor = createComment(__DEV__ ? 'self-end-anchor' : '');
+    this.#selfStartAnchor = createComment(__ENV__ === 'development' ? 'self-start-anchor' : '');
+    this.#selfEndAnchor = createComment(__ENV__ === 'development' ? 'self-end-anchor' : '');
     this.#doc.prepend(this.#selfStartAnchor);
     this.#doc.append(this.#selfEndAnchor);
     this.#rootNodes = Array.from(this.#doc.childNodes);
@@ -186,7 +186,7 @@ export class Template {
     this.#init();
     this.#dpToMountingFixerMap.forEach(fixer => fixer());
     if (parent instanceof Template) {
-      if (__DEV__ && this.isInUse) {
+      if (__ENV__ === 'development' && this.isInUse) {
         error(
           `The parent template is already in use, you should unmount it first if you want to mount it to another parent template, parent template is:`,
           parent,
@@ -205,7 +205,8 @@ export class Template {
 
   moveToBefore(tpl: Template) {
     if (!this.isInUse) {
-      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+      __ENV__ === 'development' &&
+        error(`The template is not in use, you can't move it, the template being moved is:`, this);
     }
     this.#rootNodes.forEach(node => {
       tpl.#selfStartAnchor.parentNode!.insertBefore(node, tpl.#selfStartAnchor);
@@ -214,7 +215,8 @@ export class Template {
 
   moveToAfter(tpl: Template) {
     if (!this.isInUse) {
-      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+      __ENV__ === 'development' &&
+        error(`The template is not in use, you can't move it, the template being moved is:`, this);
     }
     this.#rootNodes.forEach(node => {
       tpl.#selfEndAnchor.parentNode!.append(node, tpl.#selfEndAnchor);
@@ -312,7 +314,8 @@ export class Template {
       this.#dpToMountingFixerMap.set(name, () => {
         const directive = this.#dynamicPartToGetterMap.get(name);
         if (!isFuncInterpolator(directive)) {
-          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          __ENV__ === 'development' &&
+            error(`You must provide a function as the directive, but you provided:`, directive);
           return;
         }
         directive(ownerElement);
@@ -321,7 +324,8 @@ export class Template {
       this.#dpToUnmountingFixerMap.set(name, () => {
         const directive = this.#dynamicPartToGetterMap.get(name);
         if (!isFuncInterpolator(directive)) {
-          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          __ENV__ === 'development' &&
+            error(`You must provide a function as the directive, but you provided:`, directive);
           return;
         }
         directive(null);
@@ -357,7 +361,7 @@ export class Template {
     const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`You must provide a function as the attribute value interpolator, but you provided:`, getter);
       }
       return;
@@ -382,7 +386,7 @@ export class Template {
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(
           `Failed to parse the property binding, property name is ${propName}, DOM node is: `,
           attribute.ownerElement,
@@ -409,7 +413,7 @@ export class Template {
   ) => {
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`You must provide a function as the property value interpolator, but you provided:`, getter);
       }
       return;
@@ -426,7 +430,7 @@ export class Template {
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`Failed to parse the event binding, event name is ${eventName}, DOM node is: `, attribute.ownerElement);
       }
       return;
@@ -444,7 +448,7 @@ export class Template {
     this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
       const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(handler)) {
-        if (__DEV__ === 'development') {
+        if (__ENV__ === 'development') {
           error(
             `Field to remove event listener, you must provide a function as the event handler, but you provided:`,
             handler,
@@ -459,7 +463,7 @@ export class Template {
   #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, eventName: string) => {
     const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(
           `Field to add event listener, you must provide a function as the event handler, but you provided:`,
           handler,
@@ -478,7 +482,7 @@ export class Template {
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      __DEV__ && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
+      __ENV__ === 'development' && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
       return;
     }
 
@@ -490,7 +494,8 @@ export class Template {
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, () => {
       const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(refSetter)) {
-        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        __ENV__ === 'development' &&
+          error(`You must provide a function as the ref setter, but you provided:`, refSetter);
         return;
       }
       refSetter(ownerElement);
@@ -499,7 +504,8 @@ export class Template {
     this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
       const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(refSetter)) {
-        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        __ENV__ === 'development' &&
+          error(`You must provide a function as the ref setter, but you provided:`, refSetter);
         return;
       }
       refSetter(null);
@@ -517,7 +523,8 @@ export class Template {
     }
     const dynamicPartSpecifier = m[0];
     if (!this.#dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
-      __DEV__ && error(`There is no corresponding getter for the dynamic part specifier:`, dynamicPartSpecifier);
+      __ENV__ === 'development' &&
+        error(`There is no corresponding getter for the dynamic part specifier:`, dynamicPartSpecifier);
     }
     /**
      * split the text into two parts based on the dynamic part specifier:
@@ -528,11 +535,11 @@ export class Template {
      */
     const texts = content.split(dynamicPartSpecifier);
     if (texts.length !== 2) {
-      __DEV__ && error(`Failed to split the text into two parts:`, content);
+      __ENV__ === 'development' && error(`Failed to split the text into two parts:`, content);
       return;
     }
 
-    const anchorNode = createComment(__DEV__ ? 'anchor' : '');
+    const anchorNode = createComment(__ENV__ === 'development' ? 'anchor' : '');
     let nodesToBeRendered: Node[] = [];
     let dynamicNode: Text | Template | Template[] = createTextNode('');
     let remainingTextNode: Text | null = null;
@@ -615,7 +622,7 @@ export class Template {
         previous.remove();
       }
 
-      if (__DEV__ && current.some(item => !isTemplate(item))) {
+      if (__ENV__ === 'development' && current.some(item => !isTemplate(item))) {
         error(`For list rendering, you must provide an array of templates, but you provided:`, current);
         return;
       }

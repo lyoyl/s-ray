@@ -29,7 +29,7 @@
     "tsc": "tsc",
     "dts": "npm run tsc & api-extractor run --local --verbose",
     "dts-test": "npm run dts & tsd --files dts-tests/*test-d.ts",
-    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__DEV__=true",
+    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__ENV__='development'",
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
     "format": "dprint fmt --config ./dprint.json"

@@ -1,26 +1,49 @@
 import { build } from 'esbuild';
 import { statSync } from 'node:fs';
 
-const buildConfigs = [
+const baseBuildConfigs = [
   {
-    __DEV__: `'development'`,
+    __ENV__: `'development'`,
     format: 'esm',
-    outfile: 'dist/s-ray.js',
+    outfile: 'dist/s-ray',
   },
   {
-    __DEV__: `'production'`,
+    __ENV__: `'production'`,
     format: 'esm',
-    outfile: 'dist/s-ray.min.js',
+    outfile: 'dist/s-ray.min',
     minify: true,
   },
   {
-    __DEV__: 'process.env.NODE_ENV',
+    __ENV__: 'process.env.NODE_ENV',
     format: 'esm',
-    outfile: 'dist/s-ray-bundler.js',
+    outfile: 'dist/s-ray-bundler',
   },
 ];
 
-for (const config of buildConfigs) {
+function createSSRConfig(baseBuildConfigs) {
+  return baseBuildConfigs.filter(config => !isForBundler(config)).map(config => ({
+    ...config,
+    format: 'esm',
+    outfile: `${config.outfile}.ssr`,
+  }));
+}
+
+const finalBuildConfigs = [
+  ...baseBuildConfigs,
+  ...createSSRConfig(baseBuildConfigs),
+].map(config => ({
+  ...config,
+  outfile: `${config.outfile}.js`,
+}));
+
+function isForBundler(config) {
+  return config.outfile.includes('bundler');
+}
+
+for (const config of finalBuildConfigs) {
+  const isBundler = isForBundler(config);
+  const isSSR = config.outfile.includes('.ssr');
+
   const results = await build({
     entryPoints: ['src/index.ts'],
     target: 'esnext',
@@ -31,7 +54,8 @@ for (const config of buildConfigs) {
     outfile: config.outfile,
     metafile: true,
     define: {
-      __DEV__: config.__DEV__,
+      __ENV__: config.__ENV__,
+      __SSR__: isBundler ? 'process.env.SRAY_SSR' : `${isSSR}`,
     },
   });
 
