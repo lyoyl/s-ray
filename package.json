@@ -11,7 +11,7 @@
       "types": "./dist/s-ray.d.ts",
       "module": "./dist/s-ray-bundler.js",
       "import": "./dist/s-ray-bundler.js",
-      "node":  {
+      "node": {
         "production": "./dist/s-ray.min.ssr.js",
         "development": "./dist/s-ray.ssr.js",
         "default": "./dist/s-ray.min.ssr.js"
@@ -33,13 +33,15 @@
     "package.json"
   ],
   "scripts": {
+    "build:only": "node ./scripts/build.js",
     "build": "node ./scripts/build.js && npm run dts",
     "tsc": "tsc",
     "dts": "npm run tsc & api-extractor run --local --verbose",
     "dts-test": "npm run dts & tsd --files dts-tests/*test-d.ts",
-    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__ENV__='development'",
+    "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__ENV__='development' --define:__SSR__=false",
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
+    "test:ssr": "web-test-runner --config ./web-test-runner.ssr.config.js",
     "format": "dprint fmt --config ./dprint.json"
   },
   "devDependencies": {

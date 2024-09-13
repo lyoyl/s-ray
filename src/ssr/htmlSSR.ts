@@ -1,0 +1,535 @@
+import { on } from 'events';
+import { SRayElement } from '../defineElement.js';
+import { isDomRef } from '../domRef.js';
+import {
+  DynamicInterpolators,
+  Template,
+  bindingRE,
+  getTemplateMetadata,
+  isDynamicInterpolator,
+  isFuncInterpolator,
+  isTemplate,
+  selfEndAnchor,
+  selfStartAnchor,
+  tplPrefix,
+  tplSuffix,
+} from '../html.js';
+import { Ref, ref } from '../reactive.js';
+import { error, isArray, sanitizeHtml } from '../utils.js';
+import { customElements } from './customElements.js';
+
+interface Attr {
+  type: 'Attribute';
+  name: string;
+  value: string;
+}
+
+interface Text {
+  type: 'Text';
+  content: string;
+}
+
+interface Comment {
+  type: 'Comment';
+  content: string;
+}
+
+interface CDATA {
+  type: 'CDATA';
+  content: string;
+}
+
+type Children = (Tag | Text | Comment | CDATA)[];
+interface Tag {
+  type: 'Element';
+  name: string;
+  attrs: Attr[];
+  children: Children;
+  isSelfClosing: boolean;
+}
+
+enum BindingType {
+  BooleanAttr = 0,
+  Property,
+  NormalAttr,
+  Event,
+  Ref,
+}
+
+interface BindingObject {
+  type: BindingType;
+  name: string;
+  value: any;
+  dynamicPartSpecifiers: string[];
+}
+
+interface BooleanAttrBinding extends BindingObject {
+  type: BindingType.BooleanAttr;
+  value: boolean;
+}
+
+interface PropertyBinding extends BindingObject {
+  type: BindingType.Property;
+  value: unknown;
+}
+
+interface NormalAttrBinding extends BindingObject {
+  type: BindingType.NormalAttr;
+  value: string;
+}
+
+interface EventBinding extends BindingObject {
+  type: BindingType.Event;
+  value: CallableFunction;
+}
+
+interface RefBinding extends BindingObject {
+  type: BindingType.Ref;
+  value: CallableFunction;
+}
+
+type Binding = BooleanAttrBinding | PropertyBinding | NormalAttrBinding | EventBinding | RefBinding;
+
+interface AttributesRenderResult {
+  str: string;
+  bindings: Binding[];
+}
+
+export function isSSRTemplate(template: unknown): template is SSRTemplate {
+  return template instanceof SSRTemplate;
+}
+
+// TODO: this needs to be unique per request
+let templateId = 0;
+
+class SSRTemplate {
+  #textModes = {
+    DATA: 'DATA',
+    RCDATA: 'RCDATA',
+    RAWTEXT: 'RAWTEXT',
+    CDATA: 'CDATA',
+  };
+
+  #dynamicPartToGetterMap: Map<string, DynamicInterpolators>;
+
+  #source = '';
+  #currentTextMode = this.#textModes.DATA;
+
+  // TODO: stream the chunks
+  #chunks: string[] = [];
+
+  constructor(source: string, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
+    this.#source = source;
+    this.#dynamicPartToGetterMap = dynamicPartToGetterMap;
+  }
+
+  toString() {
+    const id = templateId++;
+    this.#chunks = [`<!--[${id}-->`];
+    // TODO: improve this later since there is no need to parse the templates that have the same pattern more than once
+    this.parse();
+    this.#chunks.push(`<!--${id}]-->`);
+    return this.#chunks.join('');
+  }
+
+  #advanceBy(num: number) {
+    this.#source = this.#source.slice(num);
+  }
+
+  #advanceSpaces() {
+    const match = /^[\t\r\n\f ]+/.exec(this.#source);
+    if (match) {
+      this.#advanceBy(match[0].length);
+    }
+  }
+
+  parse() {
+    const nodes = this.#parseChildren([]);
+
+    return {
+      type: 'Root',
+      children: nodes,
+    };
+  }
+
+  #parseChildren(ancestors: Tag[]) {
+    let nodes = [];
+
+    while (!this.#isEnd(ancestors)) {
+      let node;
+
+      if (this.#currentTextMode === this.#textModes.DATA || this.#currentTextMode === this.#textModes.RCDATA) {
+        if (this.#currentTextMode === this.#textModes.DATA && this.#source[0] === '<') {
+          if (this.#source[1] === '!') {
+            if (this.#source.startsWith('<!--')) {
+              // comments
+              node = this.#parseComment();
+            } else if (this.#source.startsWith('<![CDATA[')) {
+              // CDATA
+              node = this.#parseCDATA();
+            }
+          } else if (this.#source[1] === '/') {
+            // end tag
+          } else if (/[a-z]/i.test(this.#source[1])) {
+            // open tag
+            node = this.#parseElement(ancestors);
+          }
+        }
+      }
+
+      if (!node) {
+        node = this.#parseText();
+      }
+
+      nodes.push(node);
+    }
+
+    return nodes;
+  }
+
+  #parseElement(ancestors: Tag[]) {
+    const element = this.#parseTag();
+
+    if (!element) return null;
+
+    this.#onTagStart(element);
+
+    if (element.isSelfClosing) return element;
+
+    ancestors.push(element);
+    if (element.name === 'textarea' || element.name === 'title') {
+      this.#currentTextMode = this.#textModes.RCDATA;
+    } else if (/style|xmp|iframe|noembed|noframes|noscript/.test(element.name)) {
+      this.#currentTextMode = this.#textModes.RAWTEXT;
+    } else {
+      this.#currentTextMode = this.#textModes.DATA;
+    }
+    element.children = this.#parseChildren(ancestors);
+    ancestors.pop();
+
+    if (this.#source.startsWith(`</${element.name}`)) {
+      const endTag = this.#parseTag('end');
+      if (endTag) {
+        if (endTag.name !== element.name) {
+          __ENV__ === 'development' && error(`Expected closing tag for ${element.name} but got ${endTag.name}`);
+        }
+      }
+      this.#onTagEnd(element);
+    } else if (__ENV__ === 'development') {
+      error(`${element.name} tag is missing closing tag`);
+    }
+
+    return element;
+  }
+
+  #parseTag(type: 'start' | 'end' = 'start'): Tag | null {
+    const match = type === 'start'
+      ? /^<([a-z][^\t\r\n\f />]*)/i.exec(this.#source)
+      : /^<\/([a-z][^\t\r\n\f />]*)/i.exec(this.#source);
+
+    if (!match) {
+      __ENV__ === 'development' && error('Invalid tag');
+      return null;
+    }
+
+    const tag = match[1];
+
+    this.#advanceBy(match[0].length);
+    this.#advanceSpaces();
+
+    const attrs = this.#parseAttributes();
+
+    const isSelfClosing = this.#source.startsWith('/>');
+    this.#advanceBy(isSelfClosing ? 2 : 1);
+
+    return {
+      type: 'Element',
+      name: tag,
+      attrs,
+      children: [],
+      isSelfClosing,
+    };
+  }
+
+  #parseAttributes(): Attr[] {
+    const props: Attr[] = [];
+
+    while (
+      !this.#source.startsWith('>') &&
+      !this.#source.startsWith('/>')
+    ) {
+      const match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(this.#source);
+      if (!match) {
+        __ENV__ === 'development' && error('Invalid attribute');
+        return [];
+      }
+      const name = match[0];
+
+      this.#advanceBy(name.length);
+      this.#advanceSpaces();
+      this.#advanceBy(1);
+      this.#advanceSpaces();
+
+      let value = '';
+
+      const quote = this.#source[0];
+      const isQuoted = quote === '"' || quote === "'";
+      if (isQuoted) {
+        this.#advanceBy(1);
+        const endQuoteIndex = this.#source.indexOf(quote);
+        if (endQuoteIndex > -1) {
+          value = this.#source.slice(0, endQuoteIndex);
+          this.#advanceBy(value.length);
+          this.#advanceBy(1);
+        } else {
+          __ENV__ === 'development' && error('Missing quote');
+        }
+      } else {
+        const match = /^[^\t\r\n\f >]+/.exec(this.#source);
+        value = match![0];
+        this.#advanceBy(value.length);
+      }
+
+      this.#advanceSpaces();
+
+      props.push({
+        type: 'Attribute',
+        name,
+        value,
+      });
+    }
+
+    return props;
+  }
+
+  #parseText(): Text {
+    let endIndex = this.#source.length;
+    const ltIndex = this.#source.indexOf('<');
+    const delimiterIndex = this.#source.indexOf('{{');
+
+    if (ltIndex > -1 && ltIndex < endIndex) {
+      endIndex = ltIndex;
+    }
+    if (delimiterIndex > -1 && delimiterIndex < endIndex) {
+      endIndex = delimiterIndex;
+    }
+
+    const content = this.#source.slice(0, endIndex);
+
+    this.#advanceBy(content.length);
+
+    const text: Text = {
+      type: 'Text',
+      content,
+    };
+
+    this.#onText(text);
+
+    return text;
+  }
+
+  #parseComment(): Comment {
+    this.#advanceBy('<!--'.length);
+    const closeIndex = this.#source.indexOf('-->');
+    const content = this.#source.slice(0, closeIndex);
+    this.#advanceBy(content.length);
+    this.#advanceBy('-->'.length);
+
+    const comment: Comment = {
+      type: 'Comment',
+      content,
+    };
+
+    this.#onComment(comment);
+
+    return comment;
+  }
+
+  #parseCDATA(): CDATA {
+    this.#advanceBy('<![CDATA['.length);
+    const closeIndex = this.#source.indexOf(']]>');
+    const content = this.#source.slice(0, closeIndex);
+    this.#advanceBy(content.length);
+    this.#advanceBy(']]>'.length);
+
+    const cdata: CDATA = {
+      type: 'CDATA',
+      content,
+    };
+
+    this.#onCDATA(cdata);
+
+    return cdata;
+  }
+
+  #isEnd(ancestors: Tag[]) {
+    if (!this.#source) return true;
+
+    for (let i = ancestors.length - 1; i >= 0; --i) {
+      if (this.#source.startsWith(`</${ancestors[i].name}`)) {
+        return true;
+      }
+    }
+  }
+
+  #onTagStart(tag: Tag) {
+    const attrsRenderResult = this.#renderAttributes(tag);
+    const tagName = tag.name;
+    const CustomElement = customElements.get(tagName);
+    if (CustomElement?.prototype instanceof SRayElement) {
+      const el = new CustomElement() as SRayElement<any, any>;
+      el.connectedCallback();
+      this.#chunks.push(`<${tag.name}${attrsRenderResult.str}>${el.toString()}`);
+    } else {
+      this.#chunks.push(`<${tag.name}${attrsRenderResult.str}>`);
+    }
+  }
+
+  #onTagEnd(tag: Tag) {
+    this.#chunks.push(`</${tag.name}>`);
+  }
+
+  #onText(text: Text) {
+    bindingRE.lastIndex = 0;
+
+    const pattern = text.content;
+    let transformedText = pattern;
+    let m = bindingRE.exec(pattern);
+    while (m) {
+      const dynamicPartSpecifier = m[0];
+      const dynamicInterpolator = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+      const value = isFuncInterpolator(dynamicInterpolator)
+        ? dynamicInterpolator()
+        : dynamicInterpolator;
+
+      let currentValue = '';
+      if (isSSRTemplate(value)) {
+        currentValue = value.toString();
+      } else if (isFuncInterpolator(value)) {
+        currentValue = String(value());
+      } else if (isArray(value)) {
+        currentValue = value.join('');
+      } else {
+        currentValue = sanitizeHtml(String(value));
+      }
+      transformedText = transformedText.replace(dynamicPartSpecifier, currentValue);
+
+      bindingRE.lastIndex = m.index + currentValue.length;
+
+      m = bindingRE.exec(pattern);
+    }
+
+    this.#chunks.push(transformedText);
+  }
+
+  #onComment(comment: Comment) {
+    this.#chunks.push(`<!--${comment.content}-->`);
+  }
+
+  #onCDATA(cdata: CDATA) {
+    this.#chunks.push(`<![CDATA[${cdata.content}]]>`);
+  }
+
+  #renderAttributes(tag: Tag) {
+    const attrs = tag.attrs;
+
+    const result: AttributesRenderResult = {
+      str: '',
+      bindings: [],
+    };
+
+    if (!attrs.length) {
+      return result;
+    }
+
+    for (const attr of attrs) {
+      const bindingType = attr.name[0] === '?'
+        ? BindingType.BooleanAttr
+        : attr.name[0] === '@'
+        ? BindingType.Event
+        : attr.name[0] === ':'
+        ? BindingType.Property
+        : attr.name === 'ref'
+        ? BindingType.Ref
+        : BindingType.NormalAttr;
+
+      const attrName = attr.name.replace(/^[?@:]/, '');
+      const dynamicPartSpecifiers: string[] = [];
+
+      bindingRE.lastIndex = 0;
+
+      const pattern = attr.value;
+      let attrValue: unknown = pattern;
+      let hasBinding = false;
+      let m = bindingRE.exec(pattern);
+      while (m) {
+        hasBinding = true;
+        const dynamicPartSpecifier = m[0];
+        dynamicPartSpecifiers.push(dynamicPartSpecifier);
+
+        const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
+        if (!isFuncInterpolator(getter)) {
+          __ENV__ === 'development' &&
+            error(`Invalid binding, you must provide a function as a value getter for the attribute "${attr.name}"`);
+          return result;
+        }
+
+        switch (bindingType) {
+          case BindingType.BooleanAttr:
+            attrValue = !!getter();
+            break;
+          case BindingType.NormalAttr:
+            const text = sanitizeHtml(String(getter()));
+            attrValue = String(attrValue).replace(dynamicPartSpecifier, sanitizeHtml(String(getter())));
+            bindingRE.lastIndex = m.index + text.length;
+            break;
+          case BindingType.Event:
+          case BindingType.Ref:
+            attrValue = getter;
+            break;
+          case BindingType.Property:
+            attrValue = getter();
+            break;
+        }
+
+        m = bindingRE.exec(pattern);
+      }
+
+      switch (bindingType) {
+        case BindingType.BooleanAttr:
+          result.str += ` ${attr.name}="${pattern}" ${attr.name.slice(1)}`;
+          break;
+        case BindingType.NormalAttr:
+          result.str += ` ${attr.name}="${attrValue}"`;
+          break;
+        case BindingType.Event:
+        case BindingType.Ref:
+        case BindingType.Property:
+          result.str += ` ${attr.name}="${pattern}"`;
+          break;
+      }
+
+      hasBinding && result.bindings.push({
+        type: bindingType,
+        name: attrName,
+        value: attrValue,
+        dynamicPartSpecifiers,
+      } as Binding);
+    }
+
+    return result;
+  }
+}
+
+export function createSSRTemplateFunction(isUnsafe: boolean) {
+  return (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Template => {
+    const { templateString, dynamicPartToGetterMap } = getTemplateMetadata(strings, values, isUnsafe);
+
+    const template = new SSRTemplate(templateString, dynamicPartToGetterMap);
+
+    return template as unknown as Template;
+  };
+}

@@ -2,6 +2,9 @@ import { AttrDefinition, ExtractAttrNames, ExtractPropertyFromAttrDefinitions } 
 import { ExtractPropertiesFromPropDefinitions, PropDefinition } from './defineProperty.js';
 import { Template } from './html.js';
 import { ref } from './reactive.js';
+import { customElements } from './ssr/customElements.js';
+import { SRayHTMLElement } from './ssr/HTMLElement.js';
+import { error } from './utils.js';
 
 /**
  * @public
@@ -34,7 +37,7 @@ export function recoverCurrentInstance() {
 export class SRayElement<
   AttrDefinitions extends AttrDefinition[],
   PropDefinitions extends PropDefinition[],
-> extends HTMLElement {
+> extends SRayHTMLElement {
   [key: string]: any;
 
   #cleanups: Set<CallableFunction> = new Set();
@@ -74,8 +77,10 @@ export class SRayElement<
       this[attr.propertyName as K] = attr.default as V;
     });
     this.#setupResult = this.options.setup(this);
-    this.#setupResult.template.mountTo(this.shadowRoot!);
-    this.#connectedCbs.forEach(cb => cb());
+    if (!__SSR__) {
+      this.#setupResult.template.mountTo(this.shadowRoot!);
+      this.#connectedCbs.forEach(cb => cb());
+    }
     recoverCurrentInstance();
   }
 
@@ -117,6 +122,14 @@ export class SRayElement<
 
   $emit(event: string, detail: any = null) {
     this.dispatchEvent(new CustomEvent(event, { detail }));
+  }
+
+  toString() {
+    if (__ENV__ === 'development') {
+      !__SSR__ && error('toString() is only available in SSR.');
+      !this.#setupResult && error('The component needs to be connected before calling toString().');
+    }
+    return `<template shadowrootmode="open">\n${this.#setupResult?.template?.toString() ?? ''}\n</template>`;
   }
 }
 

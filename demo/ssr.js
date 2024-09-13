@@ -10,7 +10,7 @@ import {
   onDisconnected,
   ref,
   watch,
-} from '../src/index.js';
+} from '../dist/s-ray.ssr.js';
 
 const MyButton = defineElement({
   name: 'my-button',
@@ -89,7 +89,7 @@ const MyApp = defineElement({
   },
 });
 
-// const myApp = new MyApp();
-// myApp.connectedCallback();
+const myApp = new MyApp();
+myApp.connectedCallback();
 
-// console.log(myApp.toString());
+console.log(myApp.toString());

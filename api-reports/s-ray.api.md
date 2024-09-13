@@ -173,7 +173,7 @@ export interface SetupResult {
 }
 
 // @public (undocumented)
-export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> extends HTMLElement {
+export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitions extends PropDefinition[]> extends SRayHTMLElement {
     // (undocumented)
     $emit(event: string, detail?: any): void;
     constructor(options: ComponentOptions<AttrDefinitions, PropDefinitions>);
@@ -195,7 +195,12 @@ export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitio
     options: ComponentOptions<AttrDefinitions, PropDefinitions>;
     // (undocumented)
     registerCleanup(cleanup: CallableFunction): void;
+    // (undocumented)
+    toString(): string;
 }
+
+// @public (undocumented)
+export const SRayHTMLElement: typeof HTMLElement;
 
 // @public (undocumented)
 export class Template {
@@ -228,6 +233,8 @@ export class Template {
     setKey(key: TemplateKey): void;
     // (undocumented)
     strictSameAs(other: Template): boolean | "" | 0 | null;
+    // (undocumented)
+    toString(): string;
     unmount(): void;
     // (undocumented)
     update(dynamicPartSpecifier?: string): void;

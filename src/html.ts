@@ -1,12 +1,16 @@
 import { DomRef, isDomRef } from './domRef.js';
 import { popReactiveContextStack, pushReactiveContextStack } from './reactive.js';
 import { queueTask } from './scheduler.js';
+import { createSSRTemplateFunction, isSSRTemplate } from './ssr/htmlSSR.js';
 import { trustedTypePolicy } from './trustedType.js';
 import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
+
+export const selfStartAnchor = '[';
+export const selfEndAnchor = ']';
 
 type PropSpecifier = ':' | '?';
 
@@ -26,15 +30,15 @@ type Fixer = (...args: any[]) => void;
  */
 type TemplateKey = string | number;
 
-function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
-  return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value);
+export function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
+  return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value) || (__SSR__ && isSSRTemplate(value));
 }
 
-function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
+export function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
   return typeof value === 'function';
 }
 
-function isTemplate(value: unknown): value is Template {
+export function isTemplate(value: unknown): value is Template {
   return value instanceof Template;
 }
 
@@ -124,8 +128,8 @@ export class Template {
       return;
     }
     this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
-    this.#selfStartAnchor = createComment(__ENV__ === 'development' ? 'self-start-anchor' : '');
-    this.#selfEndAnchor = createComment(__ENV__ === 'development' ? 'self-end-anchor' : '');
+    this.#selfStartAnchor = createComment(selfStartAnchor);
+    this.#selfEndAnchor = createComment(selfEndAnchor);
     this.#doc.prepend(this.#selfStartAnchor);
     this.#doc.append(this.#selfEndAnchor);
     this.#rootNodes = Array.from(this.#doc.childNodes);
@@ -235,6 +239,10 @@ export class Template {
     this.#dpToUpdatingFixerMap.forEach(fixer => queueTask(fixer));
   }
 
+  toString() {
+    return ''; /* SSR Only */
+  }
+
   /**
    * If two templates are created from the same template pattern, they are considered the same.
    * If two templates are the same, we can then use one template's dynamicPartToGetterMap to render the other template.
@@ -293,7 +301,6 @@ export class Template {
     bindingRE.lastIndex = 0;
 
     const name = attribute.name;
-
     if (name.startsWith('@')) {
       this.#parseEvent(attribute);
       return;
@@ -380,9 +387,9 @@ export class Template {
   #parsePropertyBinding(attribute: Attr) {
     bindingRE.lastIndex = 0;
 
-    const name = attribute.name;
-    const propSpecifier = name[0] as PropSpecifier;
-    const propName = name.slice(1);
+    const rawAttrName = attribute.name;
+    const propSpecifier = rawAttrName[0] as PropSpecifier;
+    const propName = rawAttrName.slice(1);
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
@@ -396,11 +403,16 @@ export class Template {
     }
 
     const ownerElement = attribute.ownerElement!;
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(name);
     const dynamicPartSpecifier = m[0];
 
-    const propFixer = this.#propertyFixer.bind(null, ownerElement, dynamicPartSpecifier, propSpecifier, propName);
+    const propFixer = this.#propertyFixer.bind(
+      null,
+      ownerElement,
+      dynamicPartSpecifier,
+      propSpecifier,
+      rawAttrName,
+      propName,
+    );
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, propFixer);
     this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, propFixer);
   }
@@ -409,6 +421,7 @@ export class Template {
     ownerElement: Element,
     dynamicPartSpecifier: string,
     propSpecifier: PropSpecifier,
+    rawAttrName: string,
     propName: string,
   ) => {
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
@@ -420,13 +433,15 @@ export class Template {
     }
     const newValue = this.#runGetter(getter, dynamicPartSpecifier);
     (ownerElement as any)[propName] = propSpecifier === '?' ? newValue !== false : newValue;
+    // remove the attribute
+    ownerElement?.removeAttribute(rawAttrName);
   };
 
   #parseEvent(attribute: Attr) {
     bindingRE.lastIndex = 0;
 
-    const name = attribute.name;
-    const eventName = name.slice(1);
+    const rawAttrName = attribute.name;
+    const eventName = rawAttrName.slice(1);
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
@@ -437,11 +452,9 @@ export class Template {
     }
 
     const ownerElement = attribute.ownerElement!;
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(name);
     const dynamicPartSpecifier = m[0];
 
-    const eventFixer = this.#eventFixer.bind(null, ownerElement, dynamicPartSpecifier, eventName);
+    const eventFixer = this.#eventFixer.bind(null, ownerElement, dynamicPartSpecifier, rawAttrName, eventName);
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, eventFixer);
     this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, eventFixer); // event needs to be updated
 
@@ -460,7 +473,7 @@ export class Template {
     });
   }
 
-  #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, eventName: string) => {
+  #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, rawAttrName: string, eventName: string) => {
     const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
       if (__ENV__ === 'development') {
@@ -474,6 +487,8 @@ export class Template {
     // Remove the old event listener if any
     ownerElement?.removeEventListener(eventName, handler);
     ownerElement?.addEventListener(eventName, handler);
+    // remove the attribute
+    ownerElement?.removeAttribute(rawAttrName);
   };
 
   #parseRef(attribute: Attr) {
@@ -733,10 +748,10 @@ export class Template {
 
 const templateCache = new Map<string, DocumentFragment>();
 
-const safeHtml = createTemplateFunction(false);
+const safeHtml = __SSR__ ? createSSRTemplateFunction(false) : createTemplateFunction(false);
 const safeHtmlWithKey = (stringsOrKey: TemplateKey, strings: TemplateStringsArray, ...values: unknown[]) => {
   const template = safeHtml(strings, ...values);
-  template.setKey(stringsOrKey);
+  !__SSR__ && template.setKey(stringsOrKey);
   return template;
 };
 
@@ -762,30 +777,14 @@ export function html(
 /**
  * @public
  */
-export const unsafeHtml = createTemplateFunction(true);
+export const unsafeHtml = __SSR__ ? createSSRTemplateFunction(true) : createTemplateFunction(true);
 
 function createTemplateFunction(isUnsafe: boolean) {
   return (
     strings: TemplateStringsArray,
     ...values: unknown[]
   ): Template => {
-    let dynamicPartId = 0;
-    const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
-    const templateString = String.raw(
-      { raw: strings },
-      ...values.map(value => {
-        if (isDynamicInterpolator(value)) {
-          const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
-          if (isDomRef(value)) {
-            dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
-            return `ref=${dynamicPartPlaceholder}`;
-          }
-          dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
-          return dynamicPartPlaceholder;
-        }
-        return isUnsafe ? String(value) : sanitizeHtml(String(value));
-      }),
-    );
+    const { templateString, dynamicPartToGetterMap } = getTemplateMetadata(strings, values, isUnsafe);
     if (templateCache.has(templateString)) {
       const cachedOriginalDoc = templateCache.get(templateString)!;
       // We need to update the dynamic parts
@@ -797,4 +796,25 @@ function createTemplateFunction(isUnsafe: boolean) {
     templateCache.set(templateString, tpl.originalDoc);
     return tpl;
   };
+}
+
+export function getTemplateMetadata(strings: TemplateStringsArray, values: unknown[], isUnsafe: boolean) {
+  let dynamicPartId = 0;
+  const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
+  const templateString = String.raw(
+    { raw: strings },
+    ...values.map(value => {
+      if (isDynamicInterpolator(value)) {
+        const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
+        if (isDomRef(value)) {
+          dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
+          return `ref=${dynamicPartPlaceholder}`;
+        }
+        dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
+        return dynamicPartPlaceholder;
+      }
+      return isUnsafe ? String(value) : sanitizeHtml(String(value));
+    }),
+  );
+  return { templateString, dynamicPartToGetterMap };
 }
