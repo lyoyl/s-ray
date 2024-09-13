@@ -42,6 +42,7 @@
     "test": "web-test-runner --config ./web-test-runner.config.js",
     "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
     "test:ssr": "web-test-runner --config ./web-test-runner.ssr.config.js",
+    "test:ssr:watch": "web-test-runner --config ./web-test-runner.ssr.config.js --watch",
     "format": "dprint fmt --config ./dprint.json"
   },
   "devDependencies": {

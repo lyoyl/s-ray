@@ -12,19 +12,6 @@ import {
   watch,
 } from '../dist/s-ray.ssr.js';
 
-const MyButton = defineElement({
-  name: 'my-button',
-  setup() {
-    return {
-      template: html`
-        <button :disabled=${() => true}>
-          <slot></slot>
-        </button>
-      `,
-    };
-  },
-});
-
 const MyComponent = defineElement({
   name: 'my-component',
   setup() {
@@ -44,8 +31,6 @@ const MyComponent = defineElement({
         <p>State: ${() => state.value}</p>
         <p>Double: ${() => double.value}</p>
         <button @click=${() => state.value++}>Increment</button>
-
-        <my-button>Click me</my-button>
       `,
     };
   },
@@ -79,10 +64,10 @@ const MyApp = defineElement({
 
     return {
       template: html`
-        <button ?bool-attr=$$--dynamic0--$$ @click=${handleClick}  >Update</button>
+        <button ?bool-attr=$$--dynamic0--$$ @click=${handleClick}>Update</button>
         <ul>
           ${renderList}
-          <my-component></my-component>
+          <my-component ?disabled=${() => true} :data=${() => ({ text: 'hello world' })} id="my-comp"></my-component>
         </ul>
       `,
     };

@@ -1,27 +1,20 @@
-import { on } from 'events';
 import { SRayElement } from '../defineElement.js';
-import { isDomRef } from '../domRef.js';
 import {
   DynamicInterpolators,
+  FunctionInterpolator,
   Template,
   bindingRE,
   getTemplateMetadata,
-  isDynamicInterpolator,
   isFuncInterpolator,
-  isTemplate,
-  selfEndAnchor,
-  selfStartAnchor,
-  tplPrefix,
-  tplSuffix,
 } from '../html.js';
-import { Ref, ref } from '../reactive.js';
+import { popReactiveContextStack, pushReactiveContextStack } from '../reactive.js';
 import { error, isArray, sanitizeHtml } from '../utils.js';
 import { customElements } from './customElements.js';
 
 interface Attr {
   type: 'Attribute';
   name: string;
-  value: string;
+  value: string | null;
 }
 
 interface Text {
@@ -267,6 +260,16 @@ class SSRTemplate {
 
       this.#advanceBy(name.length);
       this.#advanceSpaces();
+      const isEqualSign = this.#source[0] === '=';
+      if (!isEqualSign) {
+        props.push({
+          type: 'Attribute',
+          name,
+          value: null,
+        });
+        continue;
+      }
+
       this.#advanceBy(1);
       this.#advanceSpaces();
 
@@ -378,6 +381,17 @@ class SSRTemplate {
     const CustomElement = customElements.get(tagName);
     if (CustomElement?.prototype instanceof SRayElement) {
       const el = new CustomElement() as SRayElement<any, any>;
+      attrsRenderResult.bindings.forEach(binding => {
+        switch (binding.type) {
+          case BindingType.BooleanAttr:
+          case BindingType.Property:
+            el[binding.name] = binding.value;
+            break;
+          case BindingType.NormalAttr:
+            el.setAttribute(binding.name, binding.value);
+            break;
+        }
+      });
       el.connectedCallback();
       this.#chunks.push(`<${tag.name}${attrsRenderResult.str}>${el.toString()}`);
     } else {
@@ -399,7 +413,7 @@ class SSRTemplate {
       const dynamicPartSpecifier = m[0];
       const dynamicInterpolator = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       const value = isFuncInterpolator(dynamicInterpolator)
-        ? dynamicInterpolator()
+        ? this.#runGetter(dynamicInterpolator, dynamicPartSpecifier)
         : dynamicInterpolator;
 
       let currentValue = '';
@@ -413,8 +427,7 @@ class SSRTemplate {
         currentValue = sanitizeHtml(String(value));
       }
       transformedText = transformedText.replace(dynamicPartSpecifier, currentValue);
-
-      bindingRE.lastIndex = m.index + currentValue.length;
+      bindingRE.lastIndex = m.index + Math.max(currentValue.length, dynamicPartSpecifier.length);
 
       m = bindingRE.exec(pattern);
     }
@@ -443,15 +456,16 @@ class SSRTemplate {
     }
 
     for (const attr of attrs) {
+      // dprint-ignore
       const bindingType = attr.name[0] === '?'
         ? BindingType.BooleanAttr
         : attr.name[0] === '@'
-        ? BindingType.Event
-        : attr.name[0] === ':'
-        ? BindingType.Property
-        : attr.name === 'ref'
-        ? BindingType.Ref
-        : BindingType.NormalAttr;
+          ? BindingType.Event
+          : attr.name[0] === ':'
+            ? BindingType.Property
+            : attr.name === 'ref'
+              ? BindingType.Ref
+              : BindingType.NormalAttr;
 
       const attrName = attr.name.replace(/^[?@:]/, '');
       const dynamicPartSpecifiers: string[] = [];
@@ -461,7 +475,7 @@ class SSRTemplate {
       const pattern = attr.value;
       let attrValue: unknown = pattern;
       let hasBinding = false;
-      let m = bindingRE.exec(pattern);
+      let m = bindingRE.exec(pattern || '');
       while (m) {
         hasBinding = true;
         const dynamicPartSpecifier = m[0];
@@ -476,23 +490,23 @@ class SSRTemplate {
 
         switch (bindingType) {
           case BindingType.BooleanAttr:
-            attrValue = !!getter();
+            attrValue = !!this.#runGetter(getter, dynamicPartSpecifier);
             break;
           case BindingType.NormalAttr:
-            const text = sanitizeHtml(String(getter()));
-            attrValue = String(attrValue).replace(dynamicPartSpecifier, sanitizeHtml(String(getter())));
-            bindingRE.lastIndex = m.index + text.length;
+            const text = sanitizeHtml(String(this.#runGetter(getter, dynamicPartSpecifier)));
+            attrValue = String(attrValue).replace(dynamicPartSpecifier, text);
+            bindingRE.lastIndex = m.index + Math.max(text.length, dynamicPartSpecifier.length);
             break;
           case BindingType.Event:
           case BindingType.Ref:
             attrValue = getter;
             break;
           case BindingType.Property:
-            attrValue = getter();
+            attrValue = this.#runGetter(getter, dynamicPartSpecifier);
             break;
         }
 
-        m = bindingRE.exec(pattern);
+        m = bindingRE.exec(pattern!);
       }
 
       switch (bindingType) {
@@ -500,7 +514,7 @@ class SSRTemplate {
           result.str += ` ${attr.name}="${pattern}" ${attr.name.slice(1)}`;
           break;
         case BindingType.NormalAttr:
-          result.str += ` ${attr.name}="${attrValue}"`;
+          result.str += attrValue ? ` ${attr.name}="${attrValue}"` : ` ${attr.name}`;
           break;
         case BindingType.Event:
         case BindingType.Ref:
@@ -509,7 +523,7 @@ class SSRTemplate {
           break;
       }
 
-      hasBinding && result.bindings.push({
+      result.bindings.push({
         type: bindingType,
         name: attrName,
         value: attrValue,
@@ -518,6 +532,20 @@ class SSRTemplate {
     }
 
     return result;
+  }
+
+  // these are making the SSRTemplate to be qulified as a Target
+  update(_specifier: string) {}
+  isInUse = true;
+
+  #runGetter(getter: FunctionInterpolator, dynamicPartSpecifier: string) {
+    pushReactiveContextStack({
+      target: this,
+      specifier: dynamicPartSpecifier,
+    });
+    const value = getter();
+    popReactiveContextStack();
+    return value;
   }
 }
 

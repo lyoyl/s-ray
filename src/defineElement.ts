@@ -73,8 +73,15 @@ export class SRayElement<
     setCurrentInstance(this);
     this.options.attrs?.forEach(attr => {
       this.#attrs[attr.name] = attr;
-      // setup default value
-      this[attr.propertyName as K] = attr.default as V;
+      // setup default value, default value should be get from the normal attribute first
+      // dprint-ignore
+      const defaultValue = attr.type === Boolean
+        ? this.getAttribute(attr.name) === null
+          ? attr.default
+          : true
+        : this.getAttribute(attr.name) ?? attr.default
+      // TODO: type checking in DEV mode
+      this[attr.propertyName as K] = attr.type(defaultValue) as V;
     });
     this.#setupResult = this.options.setup(this);
     if (!__SSR__) {
@@ -103,6 +110,7 @@ export class SRayElement<
   ) {
     if (oldValue === newValue) return;
     const definition = this.#attrs[name];
+    if (!definition) return; // Initial attributes are going to trigger this callback
     switch (definition.type) {
       case Boolean:
         // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes

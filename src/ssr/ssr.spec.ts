@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 
+import { defineBooleanAttr, defineNumberAttr, defineStringAttr } from '../defineAttributes.js';
 import { defineElement } from '../defineElement.js';
+import { defineProperty } from '../defineProperty.js';
 import { domRef } from '../domRef.js';
 import { html } from '../html.js';
 import { computed, ref } from '../reactive.js';
@@ -102,8 +104,7 @@ describe('SSR', function() {
               <button
                 normal-attr='staticvalue ${() => normal.value}'
                 ?disabled="${() => disabled.value}"
-                :prop="prev ${() => normal.value} ${() => disabled.value} another"
-                ?boolean-attr="bar ${() => disabled.value} foo"
+                id="my-button"
               >
                 <slot></slot>
               </button>
@@ -144,7 +145,7 @@ describe('SSR', function() {
             <my-button3><template shadowrootmode="open">
 <!--[3-->
             <div>
-              <button normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled :prop="prev $$--dynamic2--$$ $$--dynamic3--$$ another" ?boolean-attr="bar $$--dynamic4--$$ foo" boolean-attr>
+              <button normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled id="my-button">
                 <slot></slot>
               </button>
             </div>
@@ -153,6 +154,70 @@ describe('SSR', function() {
               <span>Click me</span>
             </my-button3>
           <!--2]-->
+</template>
+    `.trim());
+  });
+
+  it('custom element with bindings', async () => {
+    defineElement({
+      name: 'my-comp',
+      attrs: [
+        defineBooleanAttr('disabled', false),
+        defineNumberAttr('value', 1),
+        defineStringAttr('name', ''),
+      ] as const,
+      props: [
+        defineProperty('data', { default: 0 }),
+      ] as const,
+      setup(hostElement) {
+        const double = computed(() => hostElement.value * 2);
+
+        return {
+          template: html`
+            <p>Is diabled: ${() => hostElement.disabled}</p>
+            <p>Double: ${() => double.value}</p>
+            <p>Name: ${() => hostElement.name}-hcy</p>
+            <p>Data: ${() => JSON.stringify(hostElement.data)}</p>
+          `,
+        };
+      },
+    });
+
+    const MyApp = defineElement({
+      name: 'my-app2',
+      setup() {
+        return {
+          template: html`
+            <my-comp>This one should use default values</my-comp>
+            <my-comp disabled value="10" name="hcy" :data=${() => ({ default: 1 })}></my-comp>
+          `,
+        };
+      },
+    });
+
+    const myApp = new MyApp();
+    myApp.connectedCallback();
+
+    expect(myApp.toString()).to.equal(`
+<template shadowrootmode="open">
+<!--[4-->
+            <my-comp><template shadowrootmode="open">
+<!--[5-->
+            <p>Is diabled: false</p>
+            <p>Double: 2</p>
+            <p>Name: -hcy</p>
+            <p>Data: {&quot;default&quot;:0}</p>
+          <!--5]-->
+</template>This one should use default values</my-comp>
+            <my-comp disabled value="10" name="hcy" :data="$$--dynamic0--$$"><template shadowrootmode="open">
+<!--[6-->
+            <p>Is diabled: true</p>
+            <p>Double: 20</p>
+            <p>Name: hcy-hcy</p>
+            <p>Data: {&quot;default&quot;:1}</p>
+          <!--6]-->
+</template></my-comp>
+          <!--4]-->
 </template>
     `.trim());
   });
