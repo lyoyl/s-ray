@@ -2,6 +2,9 @@ import { AttrDefinition, ExtractAttrNames, ExtractPropertyFromAttrDefinitions } 
 import { ExtractPropertiesFromPropDefinitions, PropDefinition } from './defineProperty.js';
 import { Template } from './html.js';
 import { ref } from './reactive.js';
+import { customElements } from './ssr/customElements.js';
+import { SRayHTMLElement } from './ssr/HTMLElement.js';
+import { error } from './utils.js';
 
 /**
  * @public
@@ -34,7 +37,7 @@ export function recoverCurrentInstance() {
 export class SRayElement<
   AttrDefinitions extends AttrDefinition[],
   PropDefinitions extends PropDefinition[],
-> extends HTMLElement {
+> extends SRayHTMLElement {
   [key: string]: any;
 
   #cleanups: Set<CallableFunction> = new Set();
@@ -70,12 +73,21 @@ export class SRayElement<
     setCurrentInstance(this);
     this.options.attrs?.forEach(attr => {
       this.#attrs[attr.name] = attr;
-      // setup default value
-      this[attr.propertyName as K] = attr.default as V;
+      // setup default value, default value should be get from the normal attribute first
+      // dprint-ignore
+      const defaultValue = attr.type === Boolean
+        ? this.getAttribute(attr.name) === null
+          ? attr.default
+          : true
+        : this.getAttribute(attr.name) ?? attr.default
+      // TODO: type checking in DEV mode
+      this[attr.propertyName as K] = attr.type(defaultValue) as V;
     });
     this.#setupResult = this.options.setup(this);
-    this.#setupResult.template.mountTo(this.shadowRoot!);
-    this.#connectedCbs.forEach(cb => cb());
+    if (!__SSR__) {
+      this.#setupResult.template.mountTo(this.shadowRoot!);
+      this.#connectedCbs.forEach(cb => cb());
+    }
     recoverCurrentInstance();
   }
 
@@ -98,6 +110,7 @@ export class SRayElement<
   ) {
     if (oldValue === newValue) return;
     const definition = this.#attrs[name];
+    if (!definition) return; // Initial attributes are going to trigger this callback
     switch (definition.type) {
       case Boolean:
         // https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attributes
@@ -117,6 +130,14 @@ export class SRayElement<
 
   $emit(event: string, detail: any = null) {
     this.dispatchEvent(new CustomEvent(event, { detail }));
+  }
+
+  toString() {
+    if (__ENV__ === 'development') {
+      !__SSR__ && error('toString() is only available in SSR.');
+      !this.#setupResult && error('The component needs to be connected before calling toString().');
+    }
+    return `<template shadowrootmode="open">\n${this.#setupResult?.template?.toString() ?? ''}\n</template>`;
   }
 }
 

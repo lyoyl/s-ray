@@ -10,20 +10,7 @@ import {
   onDisconnected,
   ref,
   watch,
-} from '../src/index.js';
-
-const MyButton = defineElement({
-  name: 'my-button',
-  setup() {
-    return {
-      template: html`
-        <button :disabled=${() => true}>
-          <slot></slot>
-        </button>
-      `,
-    };
-  },
-});
+} from '../dist/s-ray.ssr.js';
 
 const MyComponent = defineElement({
   name: 'my-component',
@@ -44,8 +31,6 @@ const MyComponent = defineElement({
         <p>State: ${() => state.value}</p>
         <p>Double: ${() => double.value}</p>
         <button @click=${() => state.value++}>Increment</button>
-
-        <my-button>Click me</my-button>
       `,
     };
   },
@@ -79,17 +64,17 @@ const MyApp = defineElement({
 
     return {
       template: html`
-        <button ?bool-attr=$$--dynamic0--$$ @click=${handleClick}  >Update</button>
+        <button ?bool-attr=$$--dynamic0--$$ @click=${handleClick}>Update</button>
         <ul>
           ${renderList}
-          <my-component></my-component>
+          <my-component ?disabled=${() => true} :data=${() => ({ text: 'hello world' })} id="my-comp"></my-component>
         </ul>
       `,
     };
   },
 });
 
-// const myApp = new MyApp();
-// myApp.connectedCallback();
+const myApp = new MyApp();
+myApp.connectedCallback();
 
-// console.log(myApp.toString());
+console.log(myApp.toString());

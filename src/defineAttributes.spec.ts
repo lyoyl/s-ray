@@ -2,7 +2,9 @@ import { expect } from '@esm-bundle/chai';
 
 import { defineBooleanAttr, defineNumberAttr, defineStringAttr } from './defineAttributes.js';
 import { defineElement } from './defineElement.js';
+import { defineProperty } from './defineProperty.js';
 import { html } from './html.js';
+import { computed } from './reactive.js';
 import { nextTick } from './scheduler.js';
 
 describe('defineAttributes', () => {
@@ -123,5 +125,61 @@ describe('defineAttributes', () => {
     el.setAttribute('my-attr', '24');
     await nextTick();
     expect(el.myAttr).to.equal(24);
+  });
+
+  it('should work with custom elements', async () => {
+    const MyComp = defineElement({
+      name: 'my-comp',
+      attrs: [
+        defineBooleanAttr('disabled', false),
+        defineNumberAttr('value', 1),
+        defineStringAttr('name', ''),
+      ] as const,
+      props: [
+        defineProperty('data', { default: 0 }),
+      ] as const,
+      setup(hostElement) {
+        const double = computed(() => hostElement.value * 2);
+
+        return {
+          template: html`
+            <p>Is diabled: ${() => hostElement.disabled}</p>
+            <p>Double: ${() => double.value}</p>
+            <p>Name: ${() => hostElement.name}-hcy</p>
+            <p>Data: ${() => JSON.stringify(hostElement.data)}</p>
+          `,
+        };
+      },
+    });
+
+    const MyApp = defineElement({
+      name: 'my-app2',
+      setup() {
+        return {
+          template: html`
+            <my-comp>This one should use default values</my-comp>
+            <my-comp disabled value="10" name="hcy" :data=${() => ({ default: 1 })}></my-comp>
+          `,
+        };
+      },
+    });
+
+    const el = document.createElement('my-app2') as InstanceType<typeof MyApp>;
+    document.body.appendChild(el);
+
+    const myComps = el.shadowRoot!.querySelectorAll<InstanceType<typeof MyComp>>('my-comp')!;
+    expect(myComps[0].disabled).to.equal(false);
+    expect(myComps[0].getAttribute('disabled')).to.equal(null);
+    expect(myComps[0].value).to.equal(1);
+    expect(myComps[0].getAttribute('value')).to.equal('1');
+    expect(myComps[0].name).to.equal('');
+    expect(myComps[0].getAttribute('name')).to.equal('');
+
+    expect(myComps[1].disabled).to.equal(true);
+    expect(myComps[1].getAttribute('disabled')).to.equal('');
+    expect(myComps[1].value).to.equal(10);
+    expect(myComps[1].getAttribute('value')).to.equal('10');
+    expect(myComps[1].name).to.equal('hcy');
+    expect(myComps[1].getAttribute('name')).to.equal('hcy');
   });
 });

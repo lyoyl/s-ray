@@ -30,3 +30,5 @@ export { onConnected, onDisconnected } from './lifecycle.js';
 export { ComputedRef, OnInvalidateFn, Ref, UnwatchFn, WatchCallback, computed, ref, watch } from './reactive.js';
 export { Priority, nextTick, queueTask } from './scheduler.js';
 export { HyphenToCamelCase } from './utils.js';
+
+export { SRayHTMLElement } from './ssr/HTMLElement.js';

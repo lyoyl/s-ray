@@ -1,3 +1,5 @@
-export const trustedTypePolicy = (window as any).trustedTypes!.createPolicy('s-ray', {
+import { trustedType } from './ssr/trustedType.js';
+
+export const trustedTypePolicy = trustedType.createPolicy('s-ray', {
   createHTML: (html: string) => html,
 });

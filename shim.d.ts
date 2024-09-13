@@ -1,1 +1,2 @@
-declare const __DEV__: 'development' | 'production';
+declare const __ENV__: 'development' | 'production';
+declare const __SSR__: boolean;

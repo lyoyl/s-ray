@@ -1,12 +1,16 @@
 import { DomRef, isDomRef } from './domRef.js';
 import { popReactiveContextStack, pushReactiveContextStack } from './reactive.js';
 import { queueTask } from './scheduler.js';
+import { createSSRTemplateFunction, isSSRTemplate } from './ssr/htmlSSR.js';
 import { trustedTypePolicy } from './trustedType.js';
 import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
 export const bindingRE = /\$\$--(.+?)--\$\$/g;
+
+export const selfStartAnchor = '[';
+export const selfEndAnchor = ']';
 
 type PropSpecifier = ':' | '?';
 
@@ -26,15 +30,15 @@ type Fixer = (...args: any[]) => void;
  */
 type TemplateKey = string | number;
 
-function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
-  return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value);
+export function isDynamicInterpolator(value: unknown): value is DynamicInterpolators {
+  return isFuncInterpolator(value) || isTemplate(value) || isDomRef(value) || (__SSR__ && isSSRTemplate(value));
 }
 
-function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
+export function isFuncInterpolator(value: unknown): value is FunctionInterpolator {
   return typeof value === 'function';
 }
 
-function isTemplate(value: unknown): value is Template {
+export function isTemplate(value: unknown): value is Template {
   return value instanceof Template;
 }
 
@@ -124,8 +128,8 @@ export class Template {
       return;
     }
     this.#doc = this.#originalDoc.cloneNode(true) as DocumentFragment;
-    this.#selfStartAnchor = createComment(__DEV__ ? 'self-start-anchor' : '');
-    this.#selfEndAnchor = createComment(__DEV__ ? 'self-end-anchor' : '');
+    this.#selfStartAnchor = createComment(selfStartAnchor);
+    this.#selfEndAnchor = createComment(selfEndAnchor);
     this.#doc.prepend(this.#selfStartAnchor);
     this.#doc.append(this.#selfEndAnchor);
     this.#rootNodes = Array.from(this.#doc.childNodes);
@@ -186,7 +190,7 @@ export class Template {
     this.#init();
     this.#dpToMountingFixerMap.forEach(fixer => fixer());
     if (parent instanceof Template) {
-      if (__DEV__ && this.isInUse) {
+      if (__ENV__ === 'development' && this.isInUse) {
         error(
           `The parent template is already in use, you should unmount it first if you want to mount it to another parent template, parent template is:`,
           parent,
@@ -205,7 +209,8 @@ export class Template {
 
   moveToBefore(tpl: Template) {
     if (!this.isInUse) {
-      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+      __ENV__ === 'development' &&
+        error(`The template is not in use, you can't move it, the template being moved is:`, this);
     }
     this.#rootNodes.forEach(node => {
       tpl.#selfStartAnchor.parentNode!.insertBefore(node, tpl.#selfStartAnchor);
@@ -214,7 +219,8 @@ export class Template {
 
   moveToAfter(tpl: Template) {
     if (!this.isInUse) {
-      __DEV__ && error(`The template is not in use, you can't move it, the template being moved is:`, this);
+      __ENV__ === 'development' &&
+        error(`The template is not in use, you can't move it, the template being moved is:`, this);
     }
     this.#rootNodes.forEach(node => {
       tpl.#selfEndAnchor.parentNode!.append(node, tpl.#selfEndAnchor);
@@ -231,6 +237,10 @@ export class Template {
       return;
     }
     this.#dpToUpdatingFixerMap.forEach(fixer => queueTask(fixer));
+  }
+
+  toString() {
+    return ''; /* SSR Only */
   }
 
   /**
@@ -291,7 +301,6 @@ export class Template {
     bindingRE.lastIndex = 0;
 
     const name = attribute.name;
-
     if (name.startsWith('@')) {
       this.#parseEvent(attribute);
       return;
@@ -312,7 +321,8 @@ export class Template {
       this.#dpToMountingFixerMap.set(name, () => {
         const directive = this.#dynamicPartToGetterMap.get(name);
         if (!isFuncInterpolator(directive)) {
-          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          __ENV__ === 'development' &&
+            error(`You must provide a function as the directive, but you provided:`, directive);
           return;
         }
         directive(ownerElement);
@@ -321,7 +331,8 @@ export class Template {
       this.#dpToUnmountingFixerMap.set(name, () => {
         const directive = this.#dynamicPartToGetterMap.get(name);
         if (!isFuncInterpolator(directive)) {
-          __DEV__ && error(`You must provide a function as the directive, but you provided:`, directive);
+          __ENV__ === 'development' &&
+            error(`You must provide a function as the directive, but you provided:`, directive);
           return;
         }
         directive(null);
@@ -357,7 +368,7 @@ export class Template {
     const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`You must provide a function as the attribute value interpolator, but you provided:`, getter);
       }
       return;
@@ -376,13 +387,13 @@ export class Template {
   #parsePropertyBinding(attribute: Attr) {
     bindingRE.lastIndex = 0;
 
-    const name = attribute.name;
-    const propSpecifier = name[0] as PropSpecifier;
-    const propName = name.slice(1);
+    const rawAttrName = attribute.name;
+    const propSpecifier = rawAttrName[0] as PropSpecifier;
+    const propName = rawAttrName.slice(1);
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(
           `Failed to parse the property binding, property name is ${propName}, DOM node is: `,
           attribute.ownerElement,
@@ -392,11 +403,16 @@ export class Template {
     }
 
     const ownerElement = attribute.ownerElement!;
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(name);
     const dynamicPartSpecifier = m[0];
 
-    const propFixer = this.#propertyFixer.bind(null, ownerElement, dynamicPartSpecifier, propSpecifier, propName);
+    const propFixer = this.#propertyFixer.bind(
+      null,
+      ownerElement,
+      dynamicPartSpecifier,
+      propSpecifier,
+      rawAttrName,
+      propName,
+    );
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, propFixer);
     this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, propFixer);
   }
@@ -405,46 +421,47 @@ export class Template {
     ownerElement: Element,
     dynamicPartSpecifier: string,
     propSpecifier: PropSpecifier,
+    rawAttrName: string,
     propName: string,
   ) => {
     const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(getter)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`You must provide a function as the property value interpolator, but you provided:`, getter);
       }
       return;
     }
     const newValue = this.#runGetter(getter, dynamicPartSpecifier);
     (ownerElement as any)[propName] = propSpecifier === '?' ? newValue !== false : newValue;
+    // remove the attribute
+    ownerElement?.removeAttribute(rawAttrName);
   };
 
   #parseEvent(attribute: Attr) {
     bindingRE.lastIndex = 0;
 
-    const name = attribute.name;
-    const eventName = name.slice(1);
+    const rawAttrName = attribute.name;
+    const eventName = rawAttrName.slice(1);
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(`Failed to parse the event binding, event name is ${eventName}, DOM node is: `, attribute.ownerElement);
       }
       return;
     }
 
     const ownerElement = attribute.ownerElement!;
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(name);
     const dynamicPartSpecifier = m[0];
 
-    const eventFixer = this.#eventFixer.bind(null, ownerElement, dynamicPartSpecifier, eventName);
+    const eventFixer = this.#eventFixer.bind(null, ownerElement, dynamicPartSpecifier, rawAttrName, eventName);
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, eventFixer);
     this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, eventFixer); // event needs to be updated
 
     this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
       const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(handler)) {
-        if (__DEV__ === 'development') {
+        if (__ENV__ === 'development') {
           error(
             `Field to remove event listener, you must provide a function as the event handler, but you provided:`,
             handler,
@@ -456,10 +473,10 @@ export class Template {
     });
   }
 
-  #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, eventName: string) => {
+  #eventFixer = (ownerElement: Element, dynamicPartSpecifier: string, rawAttrName: string, eventName: string) => {
     const handler = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
     if (!isFuncInterpolator(handler)) {
-      if (__DEV__ === 'development') {
+      if (__ENV__ === 'development') {
         error(
           `Field to add event listener, you must provide a function as the event handler, but you provided:`,
           handler,
@@ -470,6 +487,8 @@ export class Template {
     // Remove the old event listener if any
     ownerElement?.removeEventListener(eventName, handler);
     ownerElement?.addEventListener(eventName, handler);
+    // remove the attribute
+    ownerElement?.removeAttribute(rawAttrName);
   };
 
   #parseRef(attribute: Attr) {
@@ -478,7 +497,7 @@ export class Template {
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
     if (!m) {
-      __DEV__ && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
+      __ENV__ === 'development' && error(`Failed to parse the ref binding, DOM node is: `, attribute.ownerElement);
       return;
     }
 
@@ -490,7 +509,8 @@ export class Template {
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, () => {
       const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(refSetter)) {
-        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        __ENV__ === 'development' &&
+          error(`You must provide a function as the ref setter, but you provided:`, refSetter);
         return;
       }
       refSetter(ownerElement);
@@ -499,7 +519,8 @@ export class Template {
     this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
       const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       if (!isFuncInterpolator(refSetter)) {
-        __DEV__ && error(`You must provide a function as the ref setter, but you provided:`, refSetter);
+        __ENV__ === 'development' &&
+          error(`You must provide a function as the ref setter, but you provided:`, refSetter);
         return;
       }
       refSetter(null);
@@ -517,7 +538,8 @@ export class Template {
     }
     const dynamicPartSpecifier = m[0];
     if (!this.#dynamicPartToGetterMap.has(dynamicPartSpecifier)) {
-      __DEV__ && error(`There is no corresponding getter for the dynamic part specifier:`, dynamicPartSpecifier);
+      __ENV__ === 'development' &&
+        error(`There is no corresponding getter for the dynamic part specifier:`, dynamicPartSpecifier);
     }
     /**
      * split the text into two parts based on the dynamic part specifier:
@@ -528,11 +550,11 @@ export class Template {
      */
     const texts = content.split(dynamicPartSpecifier);
     if (texts.length !== 2) {
-      __DEV__ && error(`Failed to split the text into two parts:`, content);
+      __ENV__ === 'development' && error(`Failed to split the text into two parts:`, content);
       return;
     }
 
-    const anchorNode = createComment(__DEV__ ? 'anchor' : '');
+    const anchorNode = createComment(__ENV__ === 'development' ? 'anchor' : '');
     let nodesToBeRendered: Node[] = [];
     let dynamicNode: Text | Template | Template[] = createTextNode('');
     let remainingTextNode: Text | null = null;
@@ -615,7 +637,7 @@ export class Template {
         previous.remove();
       }
 
-      if (__DEV__ && current.some(item => !isTemplate(item))) {
+      if (__ENV__ === 'development' && current.some(item => !isTemplate(item))) {
         error(`For list rendering, you must provide an array of templates, but you provided:`, current);
         return;
       }
@@ -726,10 +748,10 @@ export class Template {
 
 const templateCache = new Map<string, DocumentFragment>();
 
-const safeHtml = createTemplateFunction(false);
+const safeHtml = __SSR__ ? createSSRTemplateFunction(false) : createTemplateFunction(false);
 const safeHtmlWithKey = (stringsOrKey: TemplateKey, strings: TemplateStringsArray, ...values: unknown[]) => {
   const template = safeHtml(strings, ...values);
-  template.setKey(stringsOrKey);
+  !__SSR__ && template.setKey(stringsOrKey);
   return template;
 };
 
@@ -755,30 +777,14 @@ export function html(
 /**
  * @public
  */
-export const unsafeHtml = createTemplateFunction(true);
+export const unsafeHtml = __SSR__ ? createSSRTemplateFunction(true) : createTemplateFunction(true);
 
 function createTemplateFunction(isUnsafe: boolean) {
   return (
     strings: TemplateStringsArray,
     ...values: unknown[]
   ): Template => {
-    let dynamicPartId = 0;
-    const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
-    const templateString = String.raw(
-      { raw: strings },
-      ...values.map(value => {
-        if (isDynamicInterpolator(value)) {
-          const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
-          if (isDomRef(value)) {
-            dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
-            return `ref=${dynamicPartPlaceholder}`;
-          }
-          dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
-          return dynamicPartPlaceholder;
-        }
-        return isUnsafe ? String(value) : sanitizeHtml(String(value));
-      }),
-    );
+    const { templateString, dynamicPartToGetterMap } = getTemplateMetadata(strings, values, isUnsafe);
     if (templateCache.has(templateString)) {
       const cachedOriginalDoc = templateCache.get(templateString)!;
       // We need to update the dynamic parts
@@ -790,4 +796,25 @@ function createTemplateFunction(isUnsafe: boolean) {
     templateCache.set(templateString, tpl.originalDoc);
     return tpl;
   };
+}
+
+export function getTemplateMetadata(strings: TemplateStringsArray, values: unknown[], isUnsafe: boolean) {
+  let dynamicPartId = 0;
+  const dynamicPartToGetterMap = new Map<string, DynamicInterpolators>();
+  const templateString = String.raw(
+    { raw: strings },
+    ...values.map(value => {
+      if (isDynamicInterpolator(value)) {
+        const dynamicPartPlaceholder = `${tplPrefix}dynamic${dynamicPartId++}${tplSuffix}`;
+        if (isDomRef(value)) {
+          dynamicPartToGetterMap.set(dynamicPartPlaceholder, (el: Element) => value.value = el);
+          return `ref=${dynamicPartPlaceholder}`;
+        }
+        dynamicPartToGetterMap.set(dynamicPartPlaceholder, value);
+        return dynamicPartPlaceholder;
+      }
+      return isUnsafe ? String(value) : sanitizeHtml(String(value));
+    }),
+  );
+  return { templateString, dynamicPartToGetterMap };
 }
