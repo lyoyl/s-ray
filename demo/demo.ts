@@ -15,9 +15,17 @@ import {
 const MyButton = defineElement({
   name: 'my-button',
   setup() {
+    const val1 = ref(1);
+    const val2 = ref(2);
+
+    function handleClick() {
+      val1.value++;
+      val2.value--;
+    }
+
     return {
       template: html`
-        <button :disabled=${() => true}>
+        <button @click=${handleClick}  data-foo="prev ${() => val1.value} middle ${() => val2.value} post">
           <slot></slot>
         </button>
       `,

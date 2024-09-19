@@ -14,6 +14,16 @@ export const selfEndAnchor = ']';
 
 type PropSpecifier = ':' | '?';
 
+interface AttributeFixerParams {
+  name: string;
+  attribute: Attr;
+  pattern: string;
+  dynamicParts: {
+    dynamicPartSpecifier: string,
+    oldValue: unknown,
+  }[];
+}
+
 /**
  * @public
  */
@@ -342,46 +352,52 @@ export class Template {
 
     const pattern = attribute.value;
     let m = bindingRE.exec(pattern);
+    const fixerArgs: AttributeFixerParams = {
+      name,
+      attribute,
+      pattern,
+      dynamicParts: [],
+    };
     while (m) {
       const dynamicPartSpecifier = m[0];
-      const fixerArgs = {
+      fixerArgs.dynamicParts.push({
         dynamicPartSpecifier,
-        name,
-        attribute,
-        pattern,
         oldValue: null,
-      };
-      const attrFixer = this.#attributeFixer.bind(null, fixerArgs);
-      this.#dpToMountingFixerMap.set(dynamicPartSpecifier, attrFixer);
-      this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, attrFixer);
+      });
       m = bindingRE.exec(pattern);
     }
+    const attrFixer = this.#attributeFixer.bind(null, fixerArgs);
+    fixerArgs.dynamicParts.forEach(({ dynamicPartSpecifier }) => {
+      this.#dpToMountingFixerMap.set(dynamicPartSpecifier, attrFixer);
+      this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, attrFixer);
+    });
   }
 
-  #attributeFixer = (fixerArgs: {
-    dynamicPartSpecifier: string,
-    name: string,
-    attribute: Attr,
-    pattern: string,
-    oldValue: unknown,
-  }) => {
-    const { dynamicPartSpecifier, name, attribute, pattern } = fixerArgs;
-    const getter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
-    if (!isFuncInterpolator(getter)) {
-      if (__ENV__ === 'development') {
-        error(`You must provide a function as the attribute value interpolator, but you provided:`, getter);
+  #attributeFixer = (fixerArgs: AttributeFixerParams) => {
+    const { name, attribute, pattern, dynamicParts } = fixerArgs;
+    let needUpdate = false;
+    let newAttrValue = pattern;
+    dynamicParts.forEach((dynamicPartObj) => {
+      const getter = this.#dynamicPartToGetterMap.get(dynamicPartObj.dynamicPartSpecifier);
+      if (!isFuncInterpolator(getter)) {
+        if (__ENV__ === 'development') {
+          error(`You must provide a function as the attribute value interpolator, but you provided:`, getter);
+        }
+        return;
       }
+      const newValue = String(this.#runGetter(getter, dynamicPartObj.dynamicPartSpecifier));
+      newAttrValue = newAttrValue.replace(dynamicPartObj.dynamicPartSpecifier, newValue);
+      if (dynamicPartObj.oldValue === newValue) {
+        // No need to update
+        return;
+      }
+      needUpdate = true;
+      dynamicPartObj.oldValue = newValue;
+    });
+    if (!needUpdate) {
       return;
     }
-
-    const newValue = String(this.#runGetter(getter, dynamicPartSpecifier));
-    if (fixerArgs.oldValue === newValue) {
-      // No need to update
-      return;
-    }
-    fixerArgs.oldValue = newValue;
-
-    attribute.ownerElement?.setAttribute(name, pattern.replace(dynamicPartSpecifier, newValue));
+    attribute.ownerElement?.setAttribute(name, newAttrValue);
   };
 
   #parsePropertyBinding(attribute: Attr) {

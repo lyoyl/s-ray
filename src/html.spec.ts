@@ -132,12 +132,17 @@ describe('The html function', () => {
     expect(document.body.textContent).to.equal('1 -- Hello');
   });
 
-  it('attribute rendering', () => {
+  it('attribute rendering', async () => {
     const funcInterpolator = () => 'cls1 cls2';
-    const template = html`<div class="${funcInterpolator} cls3"></div>`;
+    let toggle = true;
+    const template = html`<div class="${funcInterpolator} cls3 ${() => toggle ? 'cls4' : 'cls5'}"></div>`;
     const container = document.createElement('div');
     template.mountTo(container);
-    expect(container.querySelector('div')!.getAttribute('class')).to.equal('cls1 cls2 cls3');
+    expect(container.querySelector('div')!.getAttribute('class')).to.equal('cls1 cls2 cls3 cls4');
+    toggle = false;
+    template.update();
+    await nextTick();
+    expect(container.querySelector('div')!.getAttribute('class')).to.equal('cls1 cls2 cls3 cls5');
   });
 
   it('ref interpolation', () => {
