@@ -254,8 +254,23 @@ export class Template {
     const childNodes = shadowRoot.childNodes;
     this.#selfStartAnchor = childNodes[0] as Comment;
     this.#selfEndAnchor = childNodes[childNodes.length - 1] as Comment;
+    if (__ENV__ === 'development') {
+      if (
+        this.#selfStartAnchor.nodeType !== Node.COMMENT_NODE || !this.#selfStartAnchor.nodeValue?.match?.(/^\[\d+$/)
+      ) {
+        error(
+          `The first node of the shadow root should be a comment node with the value of '[', but it is:`,
+          this.#selfStartAnchor,
+        );
+      }
+      if (this.#selfEndAnchor.nodeType !== Node.COMMENT_NODE || !this.#selfEndAnchor.nodeValue?.match?.(/^\d+\]$/)) {
+        error(
+          `The last node of the shadow root should be a comment node with the value of ']', but it is:`,
+          this.#selfEndAnchor,
+        );
+      }
+    }
     this.#rootNodes = Array.from(childNodes);
-    this.#parseTemplate(this.#doc);
   }
 
   toString() {

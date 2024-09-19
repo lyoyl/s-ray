@@ -95,6 +95,7 @@ export class SRayElement<
       } else {
         console.log(this.options.name, 'hydrating');
         console.log(this.options.name, this.internals.shadowRoot);
+        this.#setupResult.template.hydrate(this.internals.shadowRoot!);
       }
       this.#connectedCbs.forEach(cb => cb());
     }
