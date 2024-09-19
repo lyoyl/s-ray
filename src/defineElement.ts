@@ -49,9 +49,14 @@ export class SRayElement<
   #disconnectedCbs: Set<CallableFunction> = new Set();
 
   internals: ElementInternals = this.attachInternals();
+  #hasShadowRoot = false;
 
   constructor(public options: ComponentOptions<AttrDefinitions, PropDefinitions>) {
     super();
+    this.#hasShadowRoot = !!this.internals.shadowRoot;
+    if (this.#hasShadowRoot) {
+      return;
+    }
     this.attachShadow({ mode: 'open' });
     options.styles?.forEach(style => {
       this.shadowRoot!.adoptedStyleSheets.push(style);
@@ -85,7 +90,12 @@ export class SRayElement<
     });
     this.#setupResult = this.options.setup(this);
     if (!__SSR__) {
-      this.#setupResult.template.mountTo(this.shadowRoot!);
+      if (!this.#hasShadowRoot) {
+        this.#setupResult.template.mountTo(this.shadowRoot!);
+      } else {
+        console.log(this.options.name, 'hydrating');
+        console.log(this.options.name, this.internals.shadowRoot);
+      }
       this.#connectedCbs.forEach(cb => cb());
     }
     recoverCurrentInstance();
@@ -137,7 +147,7 @@ export class SRayElement<
       !__SSR__ && error('toString() is only available in SSR.');
       !this.#setupResult && error('The component needs to be connected before calling toString().');
     }
-    return `<template shadowrootmode="open">\n${this.#setupResult?.template?.toString() ?? ''}\n</template>`;
+    return `<template shadowrootmode="open">${this.#setupResult?.template?.toString() ?? ''}</template>`;
   }
 }
 

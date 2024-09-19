@@ -94,6 +94,7 @@ export function isSSRTemplate(template: unknown): template is SSRTemplate {
 
 // TODO: this needs to be unique per request
 let templateId = 0;
+let textWarpperId = 0;
 
 class SSRTemplate {
   #textModes = {
@@ -420,14 +421,16 @@ class SSRTemplate {
       if (isSSRTemplate(value)) {
         currentValue = value.toString();
       } else if (isFuncInterpolator(value)) {
-        currentValue = String(value());
+        const textWrapperId = textWarpperId++;
+        currentValue = `<!--%${textWrapperId}-->${String(value())}<!--${textWrapperId}%-->`;
       } else if (isArray(value)) {
         currentValue = value.join('');
       } else {
-        currentValue = sanitizeHtml(String(value));
+        const textWrapperId = textWarpperId++;
+        currentValue = `<!--%${textWrapperId}-->${sanitizeHtml(String(value))}<!--${textWrapperId}%-->`;
       }
       transformedText = transformedText.replace(dynamicPartSpecifier, currentValue);
-      bindingRE.lastIndex = m.index + Math.max(currentValue.length, dynamicPartSpecifier.length);
+      bindingRE.lastIndex = m.index + dynamicPartSpecifier.length;
 
       m = bindingRE.exec(pattern);
     }

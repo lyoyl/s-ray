@@ -87,7 +87,7 @@ const MyApp = defineElement({
 
     return {
       template: html`
-        <button ?bool-attr=$$--dynamic0--$$ @click=${handleClick}  >Update</button>
+        <button @click=${handleClick}>Update</button>
         <ul>
           ${renderList}
           <my-component></my-component>
@@ -96,8 +96,3 @@ const MyApp = defineElement({
     };
   },
 });
-
-// const myApp = new MyApp();
-// myApp.connectedCallback();
-
-// console.log(myApp.toString());

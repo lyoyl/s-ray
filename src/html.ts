@@ -3,7 +3,7 @@ import { popReactiveContextStack, pushReactiveContextStack } from './reactive.js
 import { queueTask } from './scheduler.js';
 import { createSSRTemplateFunction, isSSRTemplate } from './ssr/htmlSSR.js';
 import { trustedTypePolicy } from './trustedType.js';
-import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
+import { createComment, createDocumentFragment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
@@ -247,6 +247,15 @@ export class Template {
       return;
     }
     this.#dpToUpdatingFixerMap.forEach(fixer => queueTask(fixer));
+  }
+
+  hydrate(shadowRoot: ShadowRoot) {
+    this.#doc = createDocumentFragment();
+    const childNodes = shadowRoot.childNodes;
+    this.#selfStartAnchor = childNodes[0] as Comment;
+    this.#selfEndAnchor = childNodes[childNodes.length - 1] as Comment;
+    this.#rootNodes = Array.from(childNodes);
+    this.#parseTemplate(this.#doc);
   }
 
   toString() {

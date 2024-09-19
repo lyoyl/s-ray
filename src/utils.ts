@@ -6,6 +6,10 @@ export function createComment(text: string) {
   return document.createComment(text);
 }
 
+export function createDocumentFragment() {
+  return document.createDocumentFragment();
+}
+
 export function isArray(value: any): value is any[] {
   return Array.isArray(value);
 }

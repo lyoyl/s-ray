@@ -6,44 +6,37 @@
 </head>
 
 <body>
-  <my-app></my-app>
+  <my-app>
+    <template shadowrootmode="open"><!--[0-->
+      <button @click="$$--dynamic0--$$">Update</button>
+      <ul>
+        <!--[1-->
+        <li data-id="1" :prop="$--dynamic1--$">Name: <!--%0-->Apple<!--0%-->; ID: <!--%1-->1<!--1%--></li>
+        <input>
+      <!--1]--><!--[2-->
+        <li data-id="2" :prop="$--dynamic1--$">Name: <!--%2-->Banana<!--2%-->; ID: <!--%3-->2<!--3%--></li>
+        <input>
+      <!--2]--><!--[3-->
+        <li data-id="3" :prop="$--dynamic1--$">Name: <!--%4-->Cherry<!--4%-->; ID: <!--%5-->3<!--5%--></li>
+        <input>
+      <!--3]-->
+        <my-component><template shadowrootmode="open"><!--[4-->
+      <p>State: <!--%6-->0<!--6%--></p>
+      <p>Double: <!--%7-->0<!--7%--></p>
+      <button @click="$$--dynamic2--$$">Increment</button>
+
+      <my-button><template shadowrootmode="open"><!--[5-->
+      <button ?disabled="$$--dynamic0--$$" disabled>
+        <slot></slot>
+      </button>
+    <!--5]--></template>Click me</my-button>
+    <!--4]--></template></my-component>
+      </ul>
+    <!--0]--></template>
+  </my-app>
 
   <hr/>
   
-  <elll-a>
-    <template shadowrootmode="open">
-      <!--[0-->
-              <button ?bool-attr="$$--dynamic0--$$" bool-attr @click="$$--dynamic0--$$">Update</button>
-              <ul>
-                <!--[1-->
-                <li data-id="2" :prop="$--dynamic1--$">Name: Banana; ID: 2</li>
-                <input>
-              <!--1]--><!--[2-->
-                <li data-id="4" :prop="$--dynamic1--$">Name: Durian; ID: 4</li>
-                <input>
-              <!--2]--><!--[3-->
-                <li data-id="1" :prop="$--dynamic1--$">Name: Apple; ID: 1</li>
-                <input>
-              <!--3]-->
-                <my-component><template shadowrootmode="open">
-      <!--[4-->
-              <p>State: 0</p>
-              <p>Double: 0</p>
-              <button @click="$$--dynamic2--$$">Increment</button>
-      
-              <my-button><template shadowrootmode="open">
-      <!--[5-->
-              <button :disabled="$$--dynamic0--$$">
-                <slot></slot>
-              </button>
-            <!--5]-->
-      </template>Click me</my-button>
-            <!--4]-->
-      </template></my-component>
-              </ul>
-            <!--0]-->
-      </template>
-  </elll-a>
   <script src="js/demo.js"></script>
 </body>
 
