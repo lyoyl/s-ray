@@ -93,7 +93,6 @@ export class SRayElement<
       if (!this.#hasShadowRoot) {
         this.#setupResult.template.mountTo(this.shadowRoot!);
       } else {
-        console.log(this.options.name, 'hydrating');
         this.#setupResult.template.hydrate([...this.internals.shadowRoot!.childNodes]);
       }
       this.#connectedCbs.forEach(cb => cb());
