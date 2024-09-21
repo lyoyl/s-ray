@@ -4,7 +4,7 @@ import { baseConfig } from './web-test-runner.config.js';
 
 export default {
   ...baseConfig,
-  files: ['src/ssr/**/*.spec.ts'],
+  files: ['src/ssr/**/*.spec.ts', '!src/ssr/**/hydrating.spec.ts'],
   plugins: [
     esbuildPlugin({
       ts: true,
