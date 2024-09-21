@@ -4,7 +4,7 @@ import { defineBooleanAttr, defineNumberAttr, defineStringAttr } from '../define
 import { defineElement } from '../defineElement.js';
 import { defineProperty } from '../defineProperty.js';
 import { domRef } from '../domRef.js';
-import { html } from '../html.js';
+import { html, unsafeHtml } from '../html.js';
 import { computed, ref } from '../reactive.js';
 
 describe('SSR', function() {
@@ -205,6 +205,34 @@ describe('SSR', function() {
             <p>Data: <!--%9-3-->{&quot;default&quot;:1}<!--9-3%--><!--^--></p>
           <!--6-]--></template></my-comp>
           <!--4-]--></template>
+    `.trim());
+  });
+
+  it('render unsafe html', async () => {
+    const MyComponent = defineElement({
+      name: 'my-component3',
+      setup() {
+        const htmlFromProvider = '<span>Unsafe content</span>';
+        const safeContent = html`${htmlFromProvider}`;
+        const unsafeContent = unsafeHtml`${htmlFromProvider}`;
+
+        return {
+          template: html`
+            <div>${safeContent}</div>
+            <div>${unsafeContent}</div>
+          `,
+        };
+      },
+    });
+
+    const myComponent = new MyComponent();
+    myComponent.connectedCallback();
+
+    expect(myComponent.toString()).to.equal(`
+<template shadowrootmode="open"><!--[7--->
+            <div><!--[8-0-->&lt;span&gt;Unsafe content&lt;/span&gt;<!--8-0]--><!--^--></div>
+            <div><!--[9-1--><span>Unsafe content</span><!--9-1]--><!--^--></div>
+          <!--7-]--></template>
     `.trim());
   });
 });
