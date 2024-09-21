@@ -215,7 +215,7 @@ export class Template {
     // (undocumented)
     get dynamicPartToGetterMap(): Map<string, DynamicInterpolators>;
     // (undocumented)
-    hydrate(shadowRoot: ShadowRoot): void;
+    hydrate(childNodes: ChildNode[]): void;
     // (undocumented)
     get isInitialized(): boolean;
     get isInUse(): boolean;

@@ -10,12 +10,20 @@ export function createDocumentFragment() {
   return document.createDocumentFragment();
 }
 
+export function isTextNode(node: any): node is Text {
+  return node?.nodeType === Node.TEXT_NODE;
+}
+
 export function isArray(value: any): value is any[] {
   return Array.isArray(value);
 }
 
 export function error(message: string, ...args: any[]) {
   console.error(`[s-ray error]: ${message}`, ...args);
+}
+
+export function hydratingError(message: string, ...args: any[]) {
+  console.error(`[s-ray hydrating error]: ${message}`, ...args);
 }
 
 const escapeMap = {

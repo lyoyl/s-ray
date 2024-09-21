@@ -5,6 +5,7 @@ import {
   defineElement,
   defineNumberAttr,
   defineProperty,
+  domRef,
   html,
   onConnected,
   onDisconnected,
@@ -70,7 +71,6 @@ const MyApp = defineElement({
     }
 
     function handleClick() {
-      console.log('===================');
       data.value = [
         { id: 2, name: 'Banana' },
         { id: 4, name: 'Durian' },
@@ -78,18 +78,25 @@ const MyApp = defineElement({
       ];
     }
 
+    const buttonEl = domRef();
+
+    const footer = html`<footer @click=${() => {
+      console.log('footer is clicked');
+    }}>footer</footer>`;
+
     return {
       template: html`
-        <button @click=${handleClick}>Update</button>
+        <button ${buttonEl} @click=${handleClick}>Update</button>
         <ul>
           ${renderList}
           <my-component></my-component>
+          ${footer}
         </ul>
       `,
     };
   },
 });
-
+// s-ray=''
 const myApp = new MyApp();
 myApp.connectedCallback();
 console.log(myApp.toString());

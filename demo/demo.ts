@@ -5,6 +5,7 @@ import {
   defineElement,
   defineNumberAttr,
   defineProperty,
+  domRef,
   html,
   onConnected,
   onDisconnected,
@@ -15,17 +16,9 @@ import {
 const MyButton = defineElement({
   name: 'my-button',
   setup() {
-    const val1 = ref(1);
-    const val2 = ref(2);
-
-    function handleClick() {
-      val1.value++;
-      val2.value--;
-    }
-
     return {
       template: html`
-        <button @click=${handleClick}  data-foo="prev ${() => val1.value} middle ${() => val2.value} post">
+        <button ?disabled=${() => true}>
           <slot></slot>
         </button>
       `,
@@ -51,7 +44,10 @@ const MyComponent = defineElement({
       template: html`
         <p>State: ${() => state.value}</p>
         <p>Double: ${() => double.value}</p>
-        <button @click=${() => state.value++}>Increment</button>
+        <button @click=${() => {
+        console.log('click');
+        state.value++;
+      }}>Increment</button>
 
         <my-button>Click me</my-button>
       `,
@@ -85,12 +81,19 @@ const MyApp = defineElement({
       ];
     }
 
+    const buttonEl = domRef();
+
+    const footer = html`<footer @click=${() => {
+      console.log('footer is clicked');
+    }}>footer</footer>`;
+
     return {
       template: html`
-        <button @click=${handleClick}>Update</button>
+        <button ${buttonEl} @click=${handleClick}>Update</button>
         <ul>
           ${renderList}
           <my-component></my-component>
+          ${footer}
         </ul>
       `,
     };
