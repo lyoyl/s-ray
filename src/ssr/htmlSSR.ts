@@ -4,6 +4,7 @@ import {
   FunctionInterpolator,
   Template,
   bindingRE,
+  childrenAnchor,
   getTemplateMetadata,
   isFuncInterpolator,
 } from '../html.js';
@@ -94,6 +95,7 @@ export function isSSRTemplate(template: unknown): template is SSRTemplate {
 
 // TODO: this needs to be unique per request
 let templateId = 0;
+let textWarpperId = 0;
 
 class SSRTemplate {
   #textModes = {
@@ -116,12 +118,36 @@ class SSRTemplate {
     this.#dynamicPartToGetterMap = dynamicPartToGetterMap;
   }
 
-  toString() {
+  /**
+   * Server render protocols used to hydrate in the client side:
+   * 1. For each html`` template, we will generate a heading comment and a trailing comment to mark the start and end of the template, the comment will have the following format:
+   *    <!--[id-dId-->...<!--id-dId]-->
+   *    The id is a unique number for each template, the dId refers to the dynamicPartSpecifier id, if the dId is not provided, it means that the template is as the shadow root of a custom element
+   *    or it is a set of templates that are rendered from an array of templates.
+   *    demo: <!--[1-0-->...<!--1-0]-->
+   *    deom for the root of the template: <!--[0--->...<!--0-]-->
+   * 2. If the template is rendered from an array of templates, e.g. [html``, html``, html``], we will generate a heading comment and a trailing comment to mark the start and end of the array of templates,
+   *    the comment will have the following format:
+   *    <!--[[id-dId-->... <!--id-dId]]-->
+   *    demo:
+   *      <!--[[2-0-->
+   *        <!--[3--->...<!--3-]-->
+   *        <!--[4--->...<!--4-]-->
+   *        <!--[5--->...<!--5-]-->
+   *      <!--2-0]]-->
+   * 3. For attributes, properties(including :prop and ?prop), events, and refs, we will keep their original binding format in the generated html string, e.g.:
+   *    <div :style="$$--dynamic0--$$" ?disabled="$$--dynamic1--$$" @click="$$--dynamic2--$$" ref="$$--dynamic3--$$"></div>
+   *    but for attributes, we will prefix their name with the '#' symbol, e.g.:
+   *    <div #data-foo="$$--dynamic0--$$ bar $$--dynamic1--$$" data-foo="real value"></div>
+   * 4. For text bindings, we will wrap the text with the following comment format:
+   *    <!--%id-dId-->...<!--id-dId%-->
+   */
+  toString(dId: string = '') {
     const id = templateId++;
-    this.#chunks = [`<!--[${id}-->`];
+    this.#chunks = [`<!--[${id}-${dId}-->`];
     // TODO: improve this later since there is no need to parse the templates that have the same pattern more than once
     this.parse();
-    this.#chunks.push(`<!--${id}]-->`);
+    this.#chunks.push(`<!--${id}-${dId}]-->`);
     return this.#chunks.join('');
   }
 
@@ -411,6 +437,7 @@ class SSRTemplate {
     let m = bindingRE.exec(pattern);
     while (m) {
       const dynamicPartSpecifier = m[0];
+      const dId = m[1];
       const dynamicInterpolator = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
       const value = isFuncInterpolator(dynamicInterpolator)
         ? this.#runGetter(dynamicInterpolator, dynamicPartSpecifier)
@@ -418,16 +445,23 @@ class SSRTemplate {
 
       let currentValue = '';
       if (isSSRTemplate(value)) {
-        currentValue = value.toString();
-      } else if (isFuncInterpolator(value)) {
-        currentValue = String(value());
+        currentValue = value.toString(dId);
       } else if (isArray(value)) {
-        currentValue = value.join('');
+        const id = templateId++;
+        currentValue = `<!--[[${id}-${dId}-->`;
+        currentValue += value.map((tpl: SSRTemplate) => tpl.toString()).join('');
+        currentValue += `<!--${id}-${dId}]]-->`;
       } else {
-        currentValue = sanitizeHtml(String(value));
+        const textWrapperId = textWarpperId++;
+        // If the value is evaluated to an empty string, we will use a space to replace it so that it will render a text node in the browser
+        const strValue = sanitizeHtml(String(value)) || ' ';
+        currentValue = `<!--%${textWrapperId}-${dId}-->${strValue}<!--${textWrapperId}-${dId}%-->`;
       }
-      transformedText = transformedText.replace(dynamicPartSpecifier, currentValue);
-      bindingRE.lastIndex = m.index + Math.max(currentValue.length, dynamicPartSpecifier.length);
+      currentValue += `<!--${childrenAnchor}-->`;
+      const startIdx = transformedText.indexOf(dynamicPartSpecifier);
+      const endIdx = startIdx + dynamicPartSpecifier.length;
+      transformedText = transformedText.slice(0, startIdx) + currentValue + transformedText.slice(endIdx);
+      bindingRE.lastIndex = m.index + dynamicPartSpecifier.length;
 
       m = bindingRE.exec(pattern);
     }
@@ -511,9 +545,11 @@ class SSRTemplate {
 
       switch (bindingType) {
         case BindingType.BooleanAttr:
-          result.str += ` ${attr.name}="${pattern}" ${attr.name.slice(1)}`;
+          result.str += ` ${attr.name}="${pattern}"`;
+          result.str += ` ${attr.name.slice(1)}`;
           break;
         case BindingType.NormalAttr:
+          result.str += hasBinding ? ` #${attr.name}="${pattern}"` : '';
           result.str += attrValue ? ` ${attr.name}="${attrValue}"` : ` ${attr.name}`;
           break;
         case BindingType.Event:

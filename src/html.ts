@@ -3,25 +3,50 @@ import { popReactiveContextStack, pushReactiveContextStack } from './reactive.js
 import { queueTask } from './scheduler.js';
 import { createSSRTemplateFunction, isSSRTemplate } from './ssr/htmlSSR.js';
 import { trustedTypePolicy } from './trustedType.js';
-import { createComment, createTextNode, error, isArray, sanitizeHtml } from './utils.js';
+import {
+  createComment,
+  createDocumentFragment,
+  createTextNode,
+  error,
+  hydratingError,
+  isArray,
+  isTextNode,
+  sanitizeHtml,
+} from './utils.js';
 
 export const tplPrefix = '$$--';
 export const tplSuffix = '--$$';
-export const bindingRE = /\$\$--(.+?)--\$\$/g;
+export const bindingIdentifier = 'dynamic';
+export const bindingRE = new RegExp(`\\$\\$--${bindingIdentifier}(\\d+?)--\\$\\$`, 'g');
 
 export const selfStartAnchor = '[';
 export const selfEndAnchor = ']';
+export const childrenAnchor = '^';
+const hydratingSelfStartAnchorRE = /^\[\d+-(\d*)$/;
+const hydratingSelfEndAnchorRE = /^\d+-(\d*)\]$/;
+const hydratingTplListStartAnchorRE = /^\[\[\d+-(\d*)$/;
+const hydratingTplListEndAnchorRE = /^\d+-(\d*)\]\]$/;
+const hydratingTextStartAnchorRE = /^%\d+-(\d+)$/;
+const hydratingTextEndAnchorRE = /^\d+-(\d+)%$/;
 
 type PropSpecifier = ':' | '?';
 
 interface AttributeFixerParams {
   name: string;
-  attribute: Attr;
+  ownerElement: Element;
   pattern: string;
   dynamicParts: {
     dynamicPartSpecifier: string,
     oldValue: unknown,
   }[];
+}
+
+interface ChildrenFixerParams {
+  dynamicPartSpecifier: string;
+  dynamicNode: Text | Template | Template[];
+  anchorNode: Comment;
+  oldValue: unknown;
+  hydratingDocs?: Array<ChildNode[]>; // Only used during hydration
 }
 
 /**
@@ -128,6 +153,8 @@ export class Template {
   #selfStartAnchor!: Comment;
   #selfEndAnchor!: Comment;
 
+  #isHydrating = false;
+
   constructor(originalDoc: DocumentFragment, dynamicPartToGetterMap: Map<string, DynamicInterpolators>) {
     this.#originalDoc = originalDoc;
     this.#dynamicPartToGetterMap = dynamicPartToGetterMap;
@@ -232,9 +259,9 @@ export class Template {
       __ENV__ === 'development' &&
         error(`The template is not in use, you can't move it, the template being moved is:`, this);
     }
-    this.#rootNodes.forEach(node => {
-      tpl.#selfEndAnchor.parentNode!.append(node, tpl.#selfEndAnchor);
-    });
+    for (let i = this.#rootNodes.length - 1; i >= 0; i--) {
+      tpl.#selfEndAnchor.parentNode!.insertBefore(this.#rootNodes[i], tpl.#selfEndAnchor.nextSibling);
+    }
   }
 
   /**
@@ -247,6 +274,243 @@ export class Template {
       return;
     }
     this.#dpToUpdatingFixerMap.forEach(fixer => queueTask(fixer));
+  }
+
+  hydrate(childNodes: ChildNode[]) {
+    this.#isHydrating = true;
+    this.#doc = createDocumentFragment();
+    this.#selfStartAnchor = childNodes[0] as Comment;
+    this.#selfEndAnchor = childNodes[childNodes.length - 1] as Comment;
+    if (__ENV__ === 'development') {
+      if (
+        this.#selfStartAnchor.nodeType !== Node.COMMENT_NODE ||
+        !this.#selfStartAnchor.nodeValue?.match?.(hydratingSelfStartAnchorRE)
+      ) {
+        hydratingError(
+          `The first node of the shadow root should be a comment with a specific format, but we got:`,
+          this.#selfStartAnchor,
+        );
+      }
+      if (
+        this.#selfEndAnchor.nodeType !== Node.COMMENT_NODE ||
+        !this.#selfEndAnchor.nodeValue?.match?.(hydratingSelfEndAnchorRE)
+      ) {
+        hydratingError(
+          `The last node of the shadow root should be a comment with a specific format, but we got:`,
+          this.#selfEndAnchor,
+        );
+      }
+    }
+    this.#rootNodes = Array.from(childNodes);
+    this.#hydrateNodes(childNodes);
+    this.#dpToMountingFixerMap.forEach(fixer => fixer());
+    this.#isHydrating = false;
+  }
+
+  #hydrateNodes(childNodes: ChildNode[]) {
+    for (let i = 0; i < childNodes.length; i++) {
+      const node = childNodes[i];
+      // ignore the self start anchor and self end anchor
+      if (node === this.#selfStartAnchor || node === this.#selfEndAnchor) {
+        continue;
+      }
+      switch (node.nodeType) {
+        case Node.ELEMENT_NODE:
+          this.#hydrateElement(node as Element);
+          break;
+        case Node.COMMENT_NODE:
+          const tplListMatch = node.nodeValue?.match?.(hydratingTplListStartAnchorRE);
+          if (tplListMatch) {
+            const nodeCount = this.#hydrateTplListChildren(node.nextSibling, tplListMatch[1] /* dId */);
+            i += nodeCount;
+            break;
+          }
+
+          const dynamicTextMatch = node.nodeValue?.match?.(hydratingTextStartAnchorRE);
+          if (dynamicTextMatch) {
+            const nodeCount = this.#hydrateDynamicTextChildren(node, dynamicTextMatch[1] /* dId */);
+            i += nodeCount;
+            break;
+          }
+
+          const tplMatch = node.nodeValue?.match?.(hydratingSelfStartAnchorRE);
+          const dId = tplMatch && tplMatch[1];
+          if (tplMatch && dId) {
+            const nodeCount = this.#hydrateTplChildren(node, dId);
+            i += nodeCount;
+          }
+          break;
+      }
+    }
+  }
+
+  #hydrateElement(element: Element) {
+    if (element.hasAttributes()) {
+      this.#parseAttributes(element.attributes);
+    }
+
+    if (element.hasChildNodes()) {
+      this.#hydrateNodes([...element.childNodes]);
+    }
+  }
+
+  #hydrateTplListChildren(hydratingSelfStartAnchor: ChildNode | null, dId: string) {
+    const hydratingDocs: ChildrenFixerParams['hydratingDocs'] = [];
+    let current = hydratingSelfStartAnchor;
+    if (__ENV__ === 'development') {
+      // The current node should be the self start anchor of the template
+      if (!this.#isHydratingSelfStartAnchor(current)) {
+        hydratingError(
+          `Failed to find the self start anchor for the template list, start anchor is:`,
+          hydratingSelfStartAnchor,
+          'template is:',
+          this,
+        );
+      }
+    }
+
+    let nodeCount = 0;
+    let tempDoc: ChildNode[] = [];
+    while (current) {
+      if (current.nodeType === Node.COMMENT_NODE && current.nodeValue?.match(hydratingTplListEndAnchorRE)) {
+        break;
+      }
+      tempDoc.push(current);
+      nodeCount++;
+      if (this.#isHydratingSelfEndAnchor(current)) {
+        hydratingDocs.push(tempDoc);
+        tempDoc = [];
+      }
+      current = current.nextSibling;
+    }
+
+    const dynamicPartSpecifier = `$$--${bindingIdentifier}${dId}--$$`;
+    const dynamicNode = createTextNode('');
+    const anchorNode = current?.nextSibling as Comment;
+    if (__ENV__ === 'development' && !this.#isChildrenAnchor(anchorNode)) {
+      hydratingError(
+        `Failed to find the children anchor node for the template list, start anchor is:`,
+        hydratingSelfStartAnchor,
+        'template is:',
+        this,
+      );
+    }
+    const fixerArgs: ChildrenFixerParams = {
+      dynamicPartSpecifier,
+      dynamicNode,
+      anchorNode,
+      oldValue: null,
+      hydratingDocs,
+    };
+
+    this.#bindChildrenFixer(fixerArgs);
+    return nodeCount;
+  }
+
+  #hydrateTplChildren(hydratingSelfStartAnchor: ChildNode | null, dId: string) {
+    const hydratingDocs: ChildrenFixerParams['hydratingDocs'] = [];
+    let nodeCount = 0;
+    let tempDoc: ChildNode[] = [];
+    let current = hydratingSelfStartAnchor;
+    while (current) {
+      tempDoc.push(current);
+      nodeCount++;
+      if (this.#isHydratingSelfEndAnchor(current)) {
+        hydratingDocs.push(tempDoc);
+        tempDoc = [];
+        break;
+      }
+      current = current.nextSibling;
+    }
+
+    const dynamicPartSpecifier = `$$--${bindingIdentifier}${dId}--$$`;
+    const dynamicNode = createTextNode('');
+    const anchorNode = current?.nextSibling as Comment;
+    if (__ENV__ === 'development' && !this.#isChildrenAnchor(anchorNode)) {
+      hydratingError(
+        `Failed to find the children anchor node for the template, start anchor is:`,
+        hydratingSelfStartAnchor,
+        'template is:',
+        this,
+      );
+    }
+    const fixerArgs: ChildrenFixerParams = {
+      dynamicPartSpecifier,
+      dynamicNode,
+      anchorNode,
+      oldValue: null,
+      hydratingDocs,
+    };
+
+    this.#bindChildrenFixer(fixerArgs);
+
+    return nodeCount;
+  }
+
+  #hydrateDynamicTextChildren(hydratingTextStartAnchor: ChildNode | null, dId: string) {
+    const dynamicPartSpecifier = `$$--${bindingIdentifier}${dId}--$$`;
+    const dynamicNode = hydratingTextStartAnchor?.nextSibling;
+    if (!isTextNode(dynamicNode)) {
+      // TODO: optimize the error message, it should indicate that this is about hydrating text node
+      __ENV__ === 'development' &&
+        hydratingError(
+          `Failed to find the dynamic text node, start anchor is:`,
+          hydratingTextStartAnchor,
+          'template is:',
+          this,
+        );
+      return 0;
+    }
+
+    const hydratingTextEndAnchor = dynamicNode.nextSibling;
+    if (!this.#isHydratingTextEndAnchor(hydratingTextEndAnchor)) {
+      __ENV__ === 'development' &&
+        hydratingError(
+          `Failed to find the end anchor for the dynamic text node, start anchor is:`,
+          hydratingTextStartAnchor,
+          'template is:',
+          this,
+        );
+      return 0;
+    }
+
+    const anchorNode = hydratingTextEndAnchor.nextSibling;
+    if (!this.#isChildrenAnchor(anchorNode)) {
+      __ENV__ === 'development' &&
+        hydratingError(
+          `Failed to find the children anchor node for the dynamic text node, start anchor is:`,
+          hydratingTextStartAnchor,
+          'template is:',
+          this,
+        );
+      return 0;
+    }
+
+    const fixerArgs: ChildrenFixerParams = {
+      dynamicPartSpecifier,
+      dynamicNode,
+      anchorNode,
+      oldValue: null,
+    };
+
+    this.#bindChildrenFixer(fixerArgs);
+    return 3;
+  }
+
+  #isHydratingSelfStartAnchor(node: ChildNode | null) {
+    return node && node.nodeType === Node.COMMENT_NODE && node.nodeValue?.match(hydratingSelfStartAnchorRE);
+  }
+
+  #isHydratingSelfEndAnchor(node: ChildNode | null) {
+    return node && node.nodeType === Node.COMMENT_NODE && node.nodeValue?.match(hydratingSelfEndAnchorRE);
+  }
+
+  #isHydratingTextEndAnchor(node: ChildNode | null): node is Comment {
+    return !!(node && node.nodeType === Node.COMMENT_NODE && node.nodeValue?.match(hydratingTextEndAnchorRE));
+  }
+
+  #isChildrenAnchor(node: ChildNode | null): node is Comment {
+    return !!(node && node.nodeType === Node.COMMENT_NODE && node.nodeValue === childrenAnchor);
   }
 
   toString() {
@@ -309,6 +573,7 @@ export class Template {
 
   #parseAttribute(attribute: Attr) {
     bindingRE.lastIndex = 0;
+    const ownerElement = attribute.ownerElement!;
 
     const name = attribute.name;
     if (name.startsWith('@')) {
@@ -323,8 +588,8 @@ export class Template {
       this.#parseRef(attribute);
       return;
     } else if (name.startsWith(tplPrefix) && name.endsWith(tplSuffix)) {
+      // TODO: SSR support for custom directive
       // Custom directive
-      const ownerElement = attribute.ownerElement!;
       // remove the attribute
       ownerElement.removeAttribute(name);
 
@@ -351,10 +616,16 @@ export class Template {
     }
 
     const pattern = attribute.value;
+    const isHydratingNormalAttr = this.#isHydrating && name.startsWith('#');
+    if (isHydratingNormalAttr) {
+      // remove the attribute
+      ownerElement.removeAttribute(name);
+    }
+
     let m = bindingRE.exec(pattern);
     const fixerArgs: AttributeFixerParams = {
-      name,
-      attribute,
+      name: isHydratingNormalAttr ? name.slice(1) : name,
+      ownerElement,
       pattern,
       dynamicParts: [],
     };
@@ -366,6 +637,10 @@ export class Template {
       });
       m = bindingRE.exec(pattern);
     }
+    if (!fixerArgs.dynamicParts.length) {
+      // No dynamic part found, no need to bind fixer
+      return;
+    }
     const attrFixer = this.#attributeFixer.bind(null, fixerArgs);
     fixerArgs.dynamicParts.forEach(({ dynamicPartSpecifier }) => {
       this.#dpToMountingFixerMap.set(dynamicPartSpecifier, attrFixer);
@@ -374,7 +649,7 @@ export class Template {
   }
 
   #attributeFixer = (fixerArgs: AttributeFixerParams) => {
-    const { name, attribute, pattern, dynamicParts } = fixerArgs;
+    const { name, ownerElement, pattern, dynamicParts } = fixerArgs;
     let needUpdate = false;
     let newAttrValue = pattern;
     dynamicParts.forEach((dynamicPartObj) => {
@@ -394,10 +669,10 @@ export class Template {
       needUpdate = true;
       dynamicPartObj.oldValue = newValue;
     });
-    if (!needUpdate) {
+    if (!needUpdate || this.#isHydrating) {
       return;
     }
-    attribute.ownerElement?.setAttribute(name, newAttrValue);
+    ownerElement.setAttribute(name, newAttrValue);
   };
 
   #parsePropertyBinding(attribute: Attr) {
@@ -448,9 +723,14 @@ export class Template {
       return;
     }
     const newValue = this.#runGetter(getter, dynamicPartSpecifier);
-    (ownerElement as any)[propName] = propSpecifier === '?' ? newValue !== false : newValue;
     // remove the attribute
     ownerElement?.removeAttribute(rawAttrName);
+    if (this.#isHydrating && propSpecifier === '?') {
+      // We don't need to set the property value for boolean attributes during hydration,
+      // because we have already set the attribute value in the DOM: <input disabled>
+      return;
+    }
+    (ownerElement as any)[propName] = propSpecifier === '?' ? newValue !== false : newValue;
   };
 
   #parseEvent(attribute: Attr) {
@@ -518,9 +798,6 @@ export class Template {
     }
 
     const ownerElement = attribute.ownerElement;
-    // remove the attribute
-    attribute.ownerElement?.removeAttribute(attribute.name);
-
     const dynamicPartSpecifier = m[0];
     this.#dpToMountingFixerMap.set(dynamicPartSpecifier, () => {
       const refSetter = this.#dynamicPartToGetterMap.get(dynamicPartSpecifier);
@@ -530,6 +807,8 @@ export class Template {
         return;
       }
       refSetter(ownerElement);
+      // remove the attribute
+      ownerElement?.removeAttribute(attribute.name);
     });
 
     this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
@@ -570,7 +849,7 @@ export class Template {
       return;
     }
 
-    const anchorNode = createComment(__ENV__ === 'development' ? 'anchor' : '');
+    const anchorNode = createComment(childrenAnchor);
     let nodesToBeRendered: Node[] = [];
     let dynamicNode: Text | Template | Template[] = createTextNode('');
     let remainingTextNode: Text | null = null;
@@ -597,28 +876,27 @@ export class Template {
       this.#parseChildren(remainingTextNode);
     }
 
-    const fixerArgs = {
+    const fixerArgs: ChildrenFixerParams = {
       dynamicPartSpecifier,
       dynamicNode,
       anchorNode,
       oldValue: null,
     };
 
-    const childrenFixer = this.#childrenFixer.bind(null, fixerArgs);
-    this.#dpToMountingFixerMap.set(dynamicPartSpecifier, childrenFixer);
-    this.#dpToUpdatingFixerMap.set(dynamicPartSpecifier, childrenFixer);
-    // Reset oldValue when unmounting
-    this.#dpToUnmountingFixerMap.set(dynamicPartSpecifier, () => {
-      fixerArgs.oldValue = null;
-    });
+    this.#bindChildrenFixer(fixerArgs);
   }
 
-  #childrenFixer = (fixerArgs: {
-    dynamicPartSpecifier: string,
-    dynamicNode: Text | Template | Template[],
-    anchorNode: Comment,
-    oldValue: unknown,
-  }) => {
+  #bindChildrenFixer = (fixerArgs: ChildrenFixerParams) => {
+    const childrenFixer = this.#childrenFixer.bind(null, fixerArgs);
+    this.#dpToMountingFixerMap.set(fixerArgs.dynamicPartSpecifier, childrenFixer);
+    this.#dpToUpdatingFixerMap.set(fixerArgs.dynamicPartSpecifier, childrenFixer);
+    // Reset oldValue when unmounting
+    this.#dpToUnmountingFixerMap.set(fixerArgs.dynamicPartSpecifier, () => {
+      fixerArgs.oldValue = null;
+    });
+  };
+
+  #childrenFixer = (fixerArgs: ChildrenFixerParams) => {
     const dynamicInterpolator = this.#dynamicPartToGetterMap.get(fixerArgs.dynamicPartSpecifier)!;
     const value = isFuncInterpolator(dynamicInterpolator)
       ? this.#runGetter(dynamicInterpolator, fixerArgs.dynamicPartSpecifier)
@@ -657,9 +935,27 @@ export class Template {
         error(`For list rendering, you must provide an array of templates, but you provided:`, current);
         return;
       }
+
+      if (
+        __ENV__ === 'development' && this.#isHydrating &&
+        (!fixerArgs.hydratingDocs || !fixerArgs.hydratingDocs.length ||
+          fixerArgs.hydratingDocs.length !== current.length)
+      ) {
+        hydratingError(
+          `Failed to hydrate the template list because the length of the hydrating docs is mismatched, hydrating templates are:`,
+          fixerArgs.hydratingDocs,
+          'current templates are:',
+          current,
+        );
+        return;
+      }
       // Mount the new dynamic node
       (current as Template[]).forEach(tpl => {
-        tpl.mountTo(this, fixerArgs.anchorNode);
+        if (this.#isHydrating) {
+          tpl.hydrate(fixerArgs.hydratingDocs!.shift()!);
+        } else {
+          tpl.mountTo(this, fixerArgs.anchorNode);
+        }
       });
       fixerArgs.dynamicNode = current;
     } else if (!isArray(previous) && !isArray(current)) {
@@ -667,16 +963,31 @@ export class Template {
       if (isTemplate(previous)) {
         previous.unmount();
       } else {
-        previous.remove();
+        // Hydrating dynamic text binding will hit this case as well, we should not remove the text node during hydration
+        !this.#isHydrating && previous.remove();
       }
 
       // Mount the new dynamic node
       if (isTemplate(current)) {
         fixerArgs.dynamicNode = current.cloneIfInUse();
-        fixerArgs.dynamicNode.mountTo(this, fixerArgs.anchorNode);
+        if (this.#isHydrating) {
+          if (__ENV__ === 'development' && (!fixerArgs.hydratingDocs || fixerArgs.hydratingDocs.length !== 1)) {
+            hydratingError(
+              `Failed to hydrate the template, there must be one template to hydrate, but we got:`,
+              fixerArgs.hydratingDocs,
+            );
+            return;
+          }
+          fixerArgs.dynamicNode.hydrate(fixerArgs.hydratingDocs!.shift()!);
+        } else {
+          fixerArgs.dynamicNode.mountTo(this, fixerArgs.anchorNode);
+        }
       } else {
-        fixerArgs.dynamicNode = createTextNode(String(current));
-        fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
+        // Hydrating dynamic text binding will hit this case as well, we don't need to do anything during hydration
+        if (!this.#isHydrating) {
+          fixerArgs.dynamicNode = createTextNode(String(current));
+          fixerArgs.anchorNode.parentNode!.insertBefore(fixerArgs.dynamicNode, fixerArgs.anchorNode);
+        }
       }
     } else {
       const oldList = previous as Template[];

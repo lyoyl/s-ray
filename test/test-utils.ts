@@ -1,4 +1,4 @@
-import { selfEndAnchor, selfStartAnchor } from '../src/html.js';
+import { childrenAnchor, selfEndAnchor, selfStartAnchor } from '../src/html.js';
 
 export function fixture(htmlString: string) {
   const container = document.createElement('div');
@@ -18,8 +18,8 @@ export function getMiddleOfElement(element: HTMLElement, arbitraryOffset = 0) {
 }
 
 export function removeAnchors(html: string) {
-  return html.replaceAll(`<!--${selfStartAnchor}-->`, '').replaceAll(`<!--${selfEndAnchor}-->`, '').replaceAll(
-    '<!--anchor-->',
-    '',
-  );
+  return html
+    .replaceAll(`<!--${selfStartAnchor}-->`, '')
+    .replaceAll(`<!--${selfEndAnchor}-->`, '')
+    .replaceAll(`<!--${childrenAnchor}-->`, '');
 }

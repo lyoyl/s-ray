@@ -39,10 +39,13 @@
     "dts": "npm run tsc & api-extractor run --local --verbose",
     "dts-test": "npm run dts & tsd --files dts-tests/*test-d.ts",
     "demo": "esbuild demo/demo.ts --outdir=demo/js --bundle --servedir=demo --define:__ENV__='development' --define:__SSR__=false",
-    "test": "web-test-runner --config ./web-test-runner.config.js",
-    "test:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
+    "test": "npm run test:csr && npm run test:ssr && npm run test:hydrating",
+    "test:csr": "web-test-runner --config ./web-test-runner.config.js",
+    "test:csr:watch": "web-test-runner --config ./web-test-runner.config.js --watch",
     "test:ssr": "web-test-runner --config ./web-test-runner.ssr.config.js",
     "test:ssr:watch": "web-test-runner --config ./web-test-runner.ssr.config.js --watch",
+    "test:hydrating": "web-test-runner --config ./web-test-runner.hydrating.config.js",
+    "test:hydrating:watch": "web-test-runner --config ./web-test-runner.hydrating.config.js --watch",
     "format": "dprint fmt --config ./dprint.json"
   },
   "devDependencies": {

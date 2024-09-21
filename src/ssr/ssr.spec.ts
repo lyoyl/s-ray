@@ -39,15 +39,13 @@ describe('SSR', function() {
     myButton.connectedCallback();
 
     expect(myButton.toString()).to.equal(`
-<template shadowrootmode="open">
-<!--[0-->
+<template shadowrootmode="open"><!--[0--->
             <div>
-              <button normal-attr="normal" :disabled="$$--dynamic1--$$" @click="$$--dynamic2--$$" ?boolean-attr="$$--dynamic3--$$" boolean-attr ref="$$--dynamic4--$$">
+              <button #normal-attr="$$--dynamic0--$$" normal-attr="normal" :disabled="$$--dynamic1--$$" @click="$$--dynamic2--$$" ?boolean-attr="$$--dynamic3--$$" boolean-attr ref="$$--dynamic4--$$">
                 <slot></slot>
               </button>
             </div>
-          <!--0]-->
-</template>
+          <!--0-]--></template>
     `.trim());
   });
 
@@ -79,15 +77,13 @@ describe('SSR', function() {
     myButton.connectedCallback();
 
     expect(myButton.toString()).to.equal(`
-<template shadowrootmode="open">
-<!--[1-->
+<template shadowrootmode="open"><!--[1--->
             <div>
-              <button normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled :prop="prev $$--dynamic2--$$ $$--dynamic3--$$ another" ?boolean-attr="bar $$--dynamic4--$$ foo" boolean-attr>
+              <button #normal-attr="staticvalue $$--dynamic0--$$" normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled :prop="prev $$--dynamic2--$$ $$--dynamic3--$$ another" ?boolean-attr="bar $$--dynamic4--$$ foo" boolean-attr>
                 <slot></slot>
               </button>
             </div>
-          <!--1]-->
-</template>
+          <!--1-]--></template>
     `.trim());
   });
 
@@ -137,24 +133,20 @@ describe('SSR', function() {
     myComponent.connectedCallback();
 
     expect(myComponent.toString()).to.equal(`
-<template shadowrootmode="open">
-<!--[2-->
-            <p>State: 1</p>
-            <p>Double: 2</p>
+<template shadowrootmode="open"><!--[2--->
+            <p>State: <!--%0-0-->1<!--0-0%--><!--^--></p>
+            <p>Double: <!--%1-1-->2<!--1-1%--><!--^--></p>
             <button @click="$$--dynamic2--$$">Increment</button>
-            <my-button3><template shadowrootmode="open">
-<!--[3-->
+            <my-button3><template shadowrootmode="open"><!--[3--->
             <div>
-              <button normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled id="my-button">
+              <button #normal-attr="staticvalue $$--dynamic0--$$" normal-attr="staticvalue normal" ?disabled="$$--dynamic1--$$" disabled id="my-button">
                 <slot></slot>
               </button>
             </div>
-          <!--3]-->
-</template>
+          <!--3-]--></template>
               <span>Click me</span>
             </my-button3>
-          <!--2]-->
-</template>
+          <!--2-]--></template>
     `.trim());
   });
 
@@ -199,26 +191,20 @@ describe('SSR', function() {
     myApp.connectedCallback();
 
     expect(myApp.toString()).to.equal(`
-<template shadowrootmode="open">
-<!--[4-->
-            <my-comp><template shadowrootmode="open">
-<!--[5-->
-            <p>Is diabled: false</p>
-            <p>Double: 2</p>
-            <p>Name: -hcy</p>
-            <p>Data: {&quot;default&quot;:0}</p>
-          <!--5]-->
-</template>This one should use default values</my-comp>
-            <my-comp disabled value="10" name="hcy" :data="$$--dynamic0--$$"><template shadowrootmode="open">
-<!--[6-->
-            <p>Is diabled: true</p>
-            <p>Double: 20</p>
-            <p>Name: hcy-hcy</p>
-            <p>Data: {&quot;default&quot;:1}</p>
-          <!--6]-->
-</template></my-comp>
-          <!--4]-->
-</template>
+<template shadowrootmode="open"><!--[4--->
+            <my-comp><template shadowrootmode="open"><!--[5--->
+            <p>Is diabled: <!--%2-0-->false<!--2-0%--><!--^--></p>
+            <p>Double: <!--%3-1-->2<!--3-1%--><!--^--></p>
+            <p>Name: <!--%4-2--> <!--4-2%--><!--^-->-hcy</p>
+            <p>Data: <!--%5-3-->{&quot;default&quot;:0}<!--5-3%--><!--^--></p>
+          <!--5-]--></template>This one should use default values</my-comp>
+            <my-comp disabled value="10" name="hcy" :data="$$--dynamic0--$$"><template shadowrootmode="open"><!--[6--->
+            <p>Is diabled: <!--%6-0-->true<!--6-0%--><!--^--></p>
+            <p>Double: <!--%7-1-->20<!--7-1%--><!--^--></p>
+            <p>Name: <!--%8-2-->hcy<!--8-2%--><!--^-->-hcy</p>
+            <p>Data: <!--%9-3-->{&quot;default&quot;:1}<!--9-3%--><!--^--></p>
+          <!--6-]--></template></my-comp>
+          <!--4-]--></template>
     `.trim());
   });
 });
