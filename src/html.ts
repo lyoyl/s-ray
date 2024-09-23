@@ -451,7 +451,6 @@ export class Template {
     const dynamicPartSpecifier = `$$--${bindingIdentifier}${dId}--$$`;
     const dynamicNode = hydratingTextStartAnchor?.nextSibling;
     if (!isTextNode(dynamicNode)) {
-      // TODO: optimize the error message, it should indicate that this is about hydrating text node
       __ENV__ === 'development' &&
         hydratingError(
           `Failed to find the dynamic text node, start anchor is:`,

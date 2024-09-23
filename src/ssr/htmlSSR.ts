@@ -93,7 +93,6 @@ export function isSSRTemplate(template: unknown): template is SSRTemplate {
   return template instanceof SSRTemplate;
 }
 
-// TODO: this needs to be unique per request
 let templateId = 0;
 let textWarpperId = 0;
 

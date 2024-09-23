@@ -2,7 +2,6 @@ import { error } from '../utils.js';
 
 type Constructable = new(...args: any[]) => any;
 
-// TODO: this needs to be unique per request
 const globalRegistry = new Map<string, Constructable>();
 
 const customElementsSSR = {
