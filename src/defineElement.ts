@@ -146,7 +146,10 @@ export class SRayElement<
       !__SSR__ && error('toString() is only available in SSR.');
       !this.#setupResult && error('The component needs to be connected before calling toString().');
     }
-    return `<template shadowrootmode="open">${this.#setupResult?.template?.toString() ?? ''}</template>`;
+    const styles = this.options.styles?.join('') ?? '';
+    return `<template shadowrootmode="open">${styles ? `<style>${styles}</style>` : ''}${
+      this.#setupResult?.template?.toString() ?? ''
+    }</template>`;
   }
 }
 

@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 
+import { css } from '../css.js';
 import { defineBooleanAttr, defineNumberAttr, defineStringAttr } from '../defineAttributes.js';
 import { defineElement } from '../defineElement.js';
 import { defineProperty } from '../defineProperty.js';
@@ -233,6 +234,32 @@ describe('SSR', function() {
             <div><!--[8-0-->&lt;span&gt;Unsafe content&lt;/span&gt;<!--8-0]--><!--^--></div>
             <div><!--[9-1--><span>Unsafe content</span><!--9-1]--><!--^--></div>
           <!--7-]--></template>
+    `.trim());
+  });
+
+  it('render styles - inlined', async () => {
+    const MyComponent = defineElement({
+      name: 'my-component4',
+      styles: [
+        css`.foo { color: red; }`,
+        css`div { background: blue; }`,
+      ],
+      setup() {
+        return {
+          template: html`
+            <div class="foo">Hello</div>
+          `,
+        };
+      },
+    });
+
+    const myComponent = new MyComponent();
+    myComponent.connectedCallback();
+
+    expect(myComponent.toString()).to.equal(`
+<template shadowrootmode="open"><style>.foo { color: red; }div { background: blue; }</style><!--[10--->
+            <div class="foo">Hello</div>
+          <!--10-]--></template>
     `.trim());
   });
 });

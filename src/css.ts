@@ -8,6 +8,9 @@ export function css(
   ...values: unknown[]
 ) {
   const styleString = String.raw({ raw: strings }, ...values);
+  if (__SSR__) {
+    return styleString as unknown as CSSStyleSheet;
+  }
   if (styleSheetsCache.has(styleString)) {
     return styleSheetsCache.get(styleString)!;
   }
