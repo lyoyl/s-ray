@@ -186,7 +186,7 @@ export class SRayElement<AttrDefinitions extends AttrDefinition[], PropDefinitio
     // (undocumented)
     attributeChangedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>, name: string, oldValue: string | null, newValue: string | null): void;
     // (undocumented)
-    connectedCallback<K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>, V extends ElementInstance<AttrDefinitions, PropDefinitions>[K]>(this: ElementInstance<AttrDefinitions, PropDefinitions>): void;
+    connectedCallback(this: ElementInstance<AttrDefinitions, PropDefinitions>): void;
     // (undocumented)
     disconnectedCallback(): void;
     // (undocumented)

@@ -71,11 +71,25 @@ export class SRayElement<
     this.#disconnectedCbs.add(cb);
   }
 
-  connectedCallback<
+  connectedCallback(this: ElementInstance<AttrDefinitions, PropDefinitions>) {
+    setCurrentInstance(this);
+    this.#initAttrs();
+    this.#setupResult = this.options.setup(this);
+    if (!__SSR__) {
+      if (!this.#hasShadowRoot) {
+        this.#setupResult.template.mountTo(this.shadowRoot!);
+      } else {
+        this.#setupResult.template.hydrate([...this.internals.shadowRoot!.childNodes]);
+      }
+      this.#connectedCbs.forEach(cb => cb());
+    }
+    recoverCurrentInstance();
+  }
+
+  #initAttrs<
     K extends keyof ElementInstance<AttrDefinitions, PropDefinitions>,
     V extends ElementInstance<AttrDefinitions, PropDefinitions>[K],
   >(this: ElementInstance<AttrDefinitions, PropDefinitions>) {
-    setCurrentInstance(this);
     this.options.attrs?.forEach(attr => {
       this.#attrs[attr.name] = attr;
       // setup default value, default value should be get from the normal attribute first
@@ -88,16 +102,6 @@ export class SRayElement<
       // TODO: type checking in DEV mode
       this[attr.propertyName as K] = attr.type(defaultValue) as V;
     });
-    this.#setupResult = this.options.setup(this);
-    if (!__SSR__) {
-      if (!this.#hasShadowRoot) {
-        this.#setupResult.template.mountTo(this.shadowRoot!);
-      } else {
-        this.#setupResult.template.hydrate([...this.internals.shadowRoot!.childNodes]);
-      }
-      this.#connectedCbs.forEach(cb => cb());
-    }
-    recoverCurrentInstance();
   }
 
   disconnectedCallback() {
@@ -138,7 +142,7 @@ export class SRayElement<
   }
 
   $emit(event: string, detail: any = null) {
-    this.dispatchEvent(new CustomEvent(event, { detail }));
+    this.dispatchEvent(new CustomEvent(event, { detail, bubbles: true, composed: true }));
   }
 
   toString() {
